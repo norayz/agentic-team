@@ -8,7 +8,7 @@ from tools.models import AGENT_DEFAULTS
 
 AGENT_NAME = "architect"
 MODEL = os.environ.get("ARCH_MODEL", AGENT_DEFAULTS["architect"])
-SYSTEM_PROMPT = Path("/app/prompts/architect.md").read_text()
+SYSTEM_PROMPT = Path(__file__).parent.joinpath("architect.md").read_text()
 
 TOOLS = TOOLS_ISSUE + TOOLS_GIT
 

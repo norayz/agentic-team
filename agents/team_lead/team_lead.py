@@ -7,7 +7,20 @@ from tools.models import AGENT_DEFAULTS
 
 AGENT_NAME = "team_lead"
 MODEL = os.environ.get("TL_MODEL", AGENT_DEFAULTS["team_lead"])
-SYSTEM_PROMPT = Path("/app/prompts/team_lead.md").read_text()
+SYSTEM_PROMPT = Path(__file__).parent.joinpath("team_lead.md").read_text()
+
+TOOL_GET_PR_FILES = {
+    "name": "get_pr_files",
+    "description": "List files changed in a PR with diffs; optionally include full file content",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "pr_number": {"type": "integer"},
+            "include_content": {"type": "boolean", "description": "Fetch full file content from the PR branch"},
+        },
+        "required": ["pr_number"],
+    },
+}
 
 TOOL_CREATE_SUB_ISSUE = {
     "name": "create_sub_issue",
@@ -37,7 +50,7 @@ TOOL_MERGE_PR = {
     },
 }
 
-TOOLS = TOOLS_ISSUE + [TOOL_CREATE_SUB_ISSUE, TOOL_MERGE_PR]
+TOOLS = TOOLS_ISSUE + [TOOL_GET_PR_FILES, TOOL_CREATE_SUB_ISSUE, TOOL_MERGE_PR]
 
 
 def tool_executor(name: str, inputs: dict) -> str:
@@ -47,6 +60,9 @@ def tool_executor(name: str, inputs: dict) -> str:
     result = execute_issue_tools(name, inputs, AGENT_NAME)
     if result is not None:
         return result
+    if name == "get_pr_files":
+        from tools.git import get_pr_files
+        return str(get_pr_files(inputs["pr_number"], inputs.get("include_content", False)))
     if name == "create_sub_issue":
         n = create_sub_issue(
             inputs["parent_issue_number"], inputs["title"], inputs["body"], inputs.get("label")

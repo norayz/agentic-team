@@ -14,7 +14,7 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: pm
-    command: python -m agents.pm
+    command: python -m agents.pm.pm
     depends_on:
       - orchestrator
     networks:
@@ -25,7 +25,7 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: team_lead
-    command: python -m agents.team_lead
+    command: python -m agents.team_lead.team_lead
     depends_on:
       - orchestrator
     networks:
@@ -36,7 +36,7 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: architect
-    command: python -m agents.architect
+    command: python -m agents.architect.architect
     depends_on:
       - orchestrator
     networks:
@@ -47,7 +47,7 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: backend
-    command: python -m agents.backend
+    command: python -m agents.backend.backend
     depends_on:
       - orchestrator
     networks:
@@ -58,7 +58,7 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: code_reviewer
-    command: python -m agents.code_reviewer
+    command: python -m agents.code_reviewer.code_reviewer
     depends_on:
       - orchestrator
     networks:
@@ -69,7 +69,7 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: qa
-    command: python -m agents.qa
+    command: python -m agents.qa.qa
     depends_on:
       - orchestrator
     networks:
@@ -80,7 +80,7 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: devops
-    command: python -m agents.devops
+    command: python -m agents.devops.devops
     depends_on:
       - orchestrator
     networks:

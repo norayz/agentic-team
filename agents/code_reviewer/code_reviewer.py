@@ -7,7 +7,7 @@ from tools.models import AGENT_DEFAULTS
 
 AGENT_NAME = "code_reviewer"
 MODEL = os.environ.get("CR_MODEL", AGENT_DEFAULTS["code_reviewer"])
-SYSTEM_PROMPT = Path("/app/prompts/code_reviewer.md").read_text()
+SYSTEM_PROMPT = Path(__file__).parent.joinpath("code_reviewer.md").read_text()
 
 TOOL_GET_PR_FILES = {
     "name": "get_pr_files",

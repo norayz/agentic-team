@@ -8,7 +8,7 @@ from tools.models import AGENT_DEFAULTS
 
 AGENT_NAME = "pm"
 MODEL = os.environ.get("PM_MODEL", AGENT_DEFAULTS["pm"])
-SYSTEM_PROMPT = Path("/app/prompts/pm.md").read_text()
+SYSTEM_PROMPT = Path(__file__).parent.joinpath("pm.md").read_text()
 
 TOOLS = TOOLS_ISSUE
 

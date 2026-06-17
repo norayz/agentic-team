@@ -7,7 +7,7 @@ from tools.models import AGENT_DEFAULTS
 
 AGENT_NAME = "backend"
 MODEL = os.environ.get("BACKEND_MODEL", AGENT_DEFAULTS["backend"])
-SYSTEM_PROMPT = Path("/app/prompts/backend.md").read_text()
+SYSTEM_PROMPT = Path(__file__).parent.joinpath("backend.md").read_text()
 
 TOOL_RUN_PYTHON = {
     "name": "run_python",

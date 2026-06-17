@@ -177,18 +177,27 @@ def poll(
     handler: Callable[[dict], None],
     interval: int = 10,
 ) -> None:
-    """Blocking poll loop. Calls handler(issue) for every open issue matching any label."""
+    """Blocking poll loop. Skips issues already in-flight for this agent."""
     from tools.github_issues import get_issues_by_label
 
     logging.basicConfig(level=logging.INFO)
     logger.info(f"[{agent_name}] started, polling {labels}")
 
+    in_progress: set[int] = set()
+
     while True:
         try:
             for label in labels:
                 for issue in get_issues_by_label(label):
-                    logger.info(f"[{agent_name}] picking up issue #{issue['number']} ({label})")
-                    handler(issue)
+                    n = issue["number"]
+                    if n in in_progress:
+                        continue
+                    in_progress.add(n)
+                    logger.info(f"[{agent_name}] picking up issue #{n} ({label})")
+                    try:
+                        handler(issue)
+                    finally:
+                        in_progress.discard(n)
         except Exception:
             logger.exception(f"[{agent_name}] poll error")
         time.sleep(interval)

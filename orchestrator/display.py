@@ -28,6 +28,11 @@ def update_agent_status(agent: str, status: str) -> None:
             _log.pop(0)
 
 
+def reset_agent(agent: str) -> None:
+    with _lock:
+        _status[agent] = "idle"
+
+
 def get_display() -> dict:
     with _lock:
         return {"agents": dict(_status), "log": list(_log)}

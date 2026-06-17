@@ -11,7 +11,20 @@ _log = logging.getLogger(__name__)
 
 AGENT_NAME = "devops"
 MODEL = os.environ.get("DEVOPS_MODEL", AGENT_DEFAULTS["devops"])
-SYSTEM_PROMPT = Path("/app/prompts/devops.md").read_text()
+SYSTEM_PROMPT = Path(__file__).parent.joinpath("devops.md").read_text()
+
+TOOL_GET_PR_FILES = {
+    "name": "get_pr_files",
+    "description": "List files changed in a PR with diffs; optionally include full file content",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "pr_number": {"type": "integer"},
+            "include_content": {"type": "boolean", "description": "Fetch full file content from the PR branch"},
+        },
+        "required": ["pr_number"],
+    },
+}
 
 TOOL_BRANCH_EXISTS = {
     "name": "branch_exists",
@@ -36,11 +49,11 @@ TOOL_RUN_COMMAND = {
     },
 }
 
-TOOLS = TOOLS_ISSUE + TOOLS_GIT + [TOOL_BRANCH_EXISTS, TOOL_RUN_COMMAND]
+TOOLS = TOOLS_ISSUE + TOOLS_GIT + [TOOL_GET_PR_FILES, TOOL_BRANCH_EXISTS, TOOL_RUN_COMMAND]
 
 
 def tool_executor(name: str, inputs: dict) -> str:
-    from tools.sandbox import run_project
+    from tools.sandbox import run_command
 
     result = execute_issue_tools(name, inputs, AGENT_NAME) or execute_git_tools(name, inputs, AGENT_NAME)
     if result is not None:
@@ -48,8 +61,11 @@ def tool_executor(name: str, inputs: dict) -> str:
     if name == "branch_exists":
         exists = branch_exists(inputs["branch_name"])
         return f"Branch '{inputs['branch_name']}' {'exists' if exists else 'does not exist'}"
+    if name == "get_pr_files":
+        from tools.git import get_pr_files
+        return str(get_pr_files(inputs["pr_number"], inputs.get("include_content", False)))
     if name == "run_command":
-        return str(run_project(inputs["command"], inputs.get("timeout", 120)))
+        return str(run_command(inputs["command"], inputs.get("timeout", 120)))
     return f"Unknown tool: {name}"
 
 

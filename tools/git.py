@@ -57,8 +57,10 @@ def branch_exists(name: str) -> bool:
     try:
         _repo.get_branch(name)
         return True
-    except GithubException:
-        return False
+    except GithubException as e:
+        if e.status == 404:
+            return False
+        raise
 
 
 def get_pr_files(pr_number: int, include_content: bool = False) -> list[dict]:

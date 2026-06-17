@@ -6,12 +6,25 @@ import os
 import hmac
 import hashlib
 import logging
+import threading
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from orchestrator.display import update_agent_status, get_display
 from orchestrator.router import LABEL_TO_AGENT
 
 app = FastAPI(title="Agentic Team Orchestrator")
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup():
+    from tools.github_issues import setup_labels
+    from orchestrator.display import start_display
+    try:
+        setup_labels()
+    except Exception:
+        logger.warning("setup_labels failed — labels may need manual creation")
+    threading.Thread(target=start_display, daemon=True).start()
 
 
 @app.post("/webhook")
@@ -40,6 +53,11 @@ async def github_webhook(request: Request):
                 if agent is not None:
                     update_agent_status(agent, f"Issue #{issue_number} — {label}")
                     logger.info(f"Issue #{issue_number} -> {agent} ({label})")
+            if label == "done":
+                from orchestrator.display import reset_agent
+                for a in LABEL_TO_AGENT.values():
+                    if a is not None:
+                        reset_agent(a)
 
     return {"status": "ok"}
 
