@@ -3,92 +3,106 @@ import base64
 from github import Github, GithubException
 
 _g = Github(os.environ["GITHUB_TOKEN"])
-_repo_name = os.environ["GITHUB_REPO"]
-_gh_repo = _g.get_repo(_repo_name)
+_repo = _g.get_repo(os.environ["GITHUB_REPO"])
 
 
-def get_agent_branch(agent_name: str, issue_number: int) -> str:
-    """Returns branch name like backend/42"""
-    return f"{agent_name}/{issue_number}"
+def agent_branch(agent_name: str, issue_number: int) -> str:
+    return f"{agent_name}/issue-{issue_number}"
 
 
-def create_agent_branch(agent_name: str, issue_number: int) -> str:
-    """Creates git branch {agent_name}/{issue_number} from main. Returns branch name."""
-    branch_name = get_agent_branch(agent_name, issue_number)
-    main_ref = _gh_repo.get_git_ref("heads/main")
+def create_branch(name: str) -> str:
+    """Create named branch from main. No-ops if branch already exists. Returns name."""
+    main_sha = _repo.get_git_ref("heads/main").object.sha
     try:
-        _gh_repo.create_git_ref(
-            ref=f"refs/heads/{branch_name}",
-            sha=main_ref.object.sha,
-        )
+        _repo.create_git_ref(ref=f"refs/heads/{name}", sha=main_sha)
     except GithubException as e:
-        # Branch already exists — that's fine
         if e.status != 422:
             raise
-    return branch_name
+    return name
 
 
-def commit_files(branch: str, files: dict, message: str) -> None:
+def commit_files(branch: str, files: list[dict], message: str) -> None:
     """
-    Commits multiple files to a branch using GitHub API.
-    files = {"path/to/file.py": "file content as string"}
-    Uses push_files GitHub API pattern via PyGithub.
+    Commit files to branch via GitHub API.
+    files = [{"path": "src/foo.py", "content": "..."}]
     """
-    branch_ref = _gh_repo.get_git_ref(f"heads/{branch}")
-    base_tree_sha = _gh_repo.get_git_commit(branch_ref.object.sha).tree.sha
+    ref = _repo.get_git_ref(f"heads/{branch}")
+    base_sha = _repo.get_git_commit(ref.object.sha).tree.sha
 
-    blobs = []
-    for path, content in files.items():
-        blob = _gh_repo.create_git_blob(
-            content=base64.b64encode(content.encode("utf-8")).decode("utf-8"),
-            encoding="base64",
-        )
-        blobs.append(
-            {
-                "path": path,
-                "mode": "100644",
-                "type": "blob",
-                "sha": blob.sha,
-            }
-        )
+    blobs = [
+        {
+            "path": f["path"],
+            "mode": "100644",
+            "type": "blob",
+            "sha": _repo.create_git_blob(
+                base64.b64encode(f["content"].encode()).decode(), "base64"
+            ).sha,
+        }
+        for f in files
+    ]
 
-    new_tree = _gh_repo.create_git_tree(blobs, base_tree=_gh_repo.get_git_tree(base_tree_sha))
-    parent_commit = _gh_repo.get_git_commit(branch_ref.object.sha)
-    new_commit = _gh_repo.create_git_commit(
-        message=message,
-        tree=new_tree,
-        parents=[parent_commit],
-    )
-    branch_ref.edit(sha=new_commit.sha)
+    new_tree = _repo.create_git_tree(blobs, base_tree=_repo.get_git_tree(base_sha))
+    parent = _repo.get_git_commit(ref.object.sha)
+    new_commit = _repo.create_git_commit(message, new_tree, [parent])
+    ref.edit(sha=new_commit.sha)
 
 
-def open_pr(branch: str, title: str, body: str, issue_number: int) -> int:
-    """Opens PR from branch to main. Body references the issue. Returns PR number."""
-    full_body = f"Closes #{issue_number}\n\n{body}"
-    pr = _gh_repo.create_pull(
-        title=title,
-        body=full_body,
-        head=branch,
-        base="main",
-    )
-    return pr.number
+def open_pr(branch: str, title: str, body: str, issue_number: int | None = None) -> int:
+    """Open PR from branch to main. Returns PR number."""
+    full_body = f"Closes #{issue_number}\n\n{body}" if issue_number else body
+    return _repo.create_pull(title=title, body=full_body, head=branch, base="main").number
 
 
-def get_branch_files(branch: str) -> dict:
-    """Returns {path: content} for all files in the branch"""
+def branch_exists(name: str) -> bool:
+    try:
+        _repo.get_branch(name)
+        return True
+    except GithubException:
+        return False
+
+
+def get_pr_files(pr_number: int, include_content: bool = False) -> list[dict]:
+    pr = _repo.get_pull(pr_number)
+    result = []
+    for f in pr.get_files():
+        entry = {
+            "filename": f.filename,
+            "status": f.status,
+            "additions": f.additions,
+            "deletions": f.deletions,
+            "patch": f.patch,
+        }
+        if include_content and f.status != "removed":
+            try:
+                cf = _repo.get_contents(f.filename, ref=pr.head.sha)
+                entry["content"] = cf.decoded_content.decode()
+            except Exception as e:
+                entry["content_error"] = str(e)
+        result.append(entry)
+    return result
+
+
+def post_pr_review(pr_number: int, body: str, event: str) -> None:
+    """event: APPROVE | REQUEST_CHANGES | COMMENT"""
+    _repo.get_pull(pr_number).create_review(body=body, event=event)
+
+
+def merge_pr(pr_number: int, merge_method: str = "squash") -> None:
+    _repo.get_pull(pr_number).merge(merge_method=merge_method)
+
+
+def get_branch_files(branch: str) -> dict[str, str]:
+    """Returns {path: content} for all files in branch."""
     result = {}
     try:
-        contents = _gh_repo.get_contents("", ref=branch)
+        stack = list(_repo.get_contents("", ref=branch))
     except GithubException:
         return result
-
-    stack = list(contents)
     while stack:
         item = stack.pop()
         if item.type == "dir":
-            stack.extend(_gh_repo.get_contents(item.path, ref=branch))
+            stack.extend(_repo.get_contents(item.path, ref=branch))
         else:
-            file_content = _gh_repo.get_contents(item.path, ref=branch)
-            result[item.path] = base64.b64decode(file_content.content).decode("utf-8")
-
+            cf = _repo.get_contents(item.path, ref=branch)
+            result[item.path] = base64.b64decode(cf.content).decode()
     return result
