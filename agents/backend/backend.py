@@ -1,40 +1,16 @@
 """Backend Agent — implements code based on the architecture design."""
-import os
 from pathlib import Path
-from agents.base import run_agent
-from agents.shared import TOOLS_ISSUE, TOOLS_GIT, execute_issue_tools, execute_git_tools, poll
-from tools.models import AGENT_DEFAULTS
+from agents.shared import (
+    TOOLS_ISSUE,
+    TOOLS_GIT,
+    TOOL_RUN_PYTHON,
+    TOOL_RUN_PROJECT,
+    execute_issue_tools,
+    execute_git_tools,
+    run_agent_service,
+)
 
 AGENT_NAME = "backend"
-MODEL = os.environ.get("BACKEND_MODEL", AGENT_DEFAULTS["backend"])
-SYSTEM_PROMPT = Path(__file__).parent.joinpath("backend.md").read_text()
-
-TOOL_RUN_PYTHON = {
-    "name": "run_python",
-    "description": "Execute Python code in an E2B sandbox; returns stdout + stderr",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "code": {"type": "string"},
-            "timeout": {"type": "integer", "description": "Seconds, default 30"},
-        },
-        "required": ["code"],
-    },
-}
-
-TOOL_RUN_PROJECT = {
-    "name": "run_project",
-    "description": "Run a shell command inside the sandbox workspace directory",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "command": {"type": "string"},
-            "timeout": {"type": "integer", "description": "Seconds, default 60"},
-        },
-        "required": ["command"],
-    },
-}
-
 TOOLS = TOOLS_ISSUE + TOOLS_GIT + [TOOL_RUN_PYTHON, TOOL_RUN_PROJECT]
 
 
@@ -51,12 +27,14 @@ def tool_executor(name: str, inputs: dict) -> str:
     return f"Unknown tool: {name}"
 
 
-def handle(issue: dict) -> None:
-    run_agent(issue["number"], AGENT_NAME, MODEL, TOOLS, SYSTEM_PROMPT, tool_executor)
-
-
 def main():
-    poll(AGENT_NAME, ["in-dev"], handle)
+    run_agent_service(
+        AGENT_NAME,
+        ["in-dev"],
+        TOOLS,
+        tool_executor,
+        Path(__file__).parent / "backend.md",
+    )
 
 
 if __name__ == "__main__":

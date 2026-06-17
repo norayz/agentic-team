@@ -1,15 +1,15 @@
 """Architect Agent — designs technical architecture and creates implementation plan."""
-import os
 from pathlib import Path
-from agents.base import run_agent
-from agents.shared import TOOLS_ISSUE, TOOLS_GIT, execute_issue_tools, execute_git_tools, poll
+from agents.shared import (
+    TOOLS_ISSUE,
+    TOOLS_GIT,
+    execute_issue_tools,
+    execute_git_tools,
+    run_agent_service,
+)
 from tools.github_issues import update_label
-from tools.models import AGENT_DEFAULTS
 
 AGENT_NAME = "architect"
-MODEL = os.environ.get("ARCH_MODEL", AGENT_DEFAULTS["architect"])
-SYSTEM_PROMPT = Path(__file__).parent.joinpath("architect.md").read_text()
-
 TOOLS = TOOLS_ISSUE + TOOLS_GIT
 
 
@@ -21,13 +21,19 @@ def tool_executor(name: str, inputs: dict) -> str:
     )
 
 
-def handle(issue: dict) -> None:
+def on_pickup(issue: dict) -> None:
     update_label(issue["number"], "arch-drafting")
-    run_agent(issue["number"], AGENT_NAME, MODEL, TOOLS, SYSTEM_PROMPT, tool_executor)
 
 
 def main():
-    poll(AGENT_NAME, ["approved-for-architect"], handle)
+    run_agent_service(
+        AGENT_NAME,
+        ["approved-for-architect"],
+        TOOLS,
+        tool_executor,
+        Path(__file__).parent / "architect.md",
+        on_pickup=on_pickup,
+    )
 
 
 if __name__ == "__main__":

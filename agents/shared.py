@@ -1,11 +1,13 @@
-"""Shared tool schemas, executors, and poll loop used by all agents."""
+"""Shared tool schemas, executors, poll loop, and agent service harness."""
+import os
 import time
 import logging
+from pathlib import Path
 from typing import Callable
 
 logger = logging.getLogger(__name__)
 
-# ── Tool schema constants ──────────────────────────────────────────────────────
+# ── Issue tool schemas ─────────────────────────────────────────────────────────
 
 TOOL_GET_ISSUE: dict = {
     "name": "get_issue",
@@ -66,6 +68,8 @@ TOOL_UPDATE_ISSUE_BODY: dict = {
     },
 }
 
+# ── Git tool schemas ───────────────────────────────────────────────────────────
+
 _FILE_ITEM = {
     "type": "object",
     "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
@@ -114,7 +118,114 @@ TOOL_OPEN_PR: dict = {
     },
 }
 
-# Composed tool sets
+TOOL_GET_PR_FILES: dict = {
+    "name": "get_pr_files",
+    "description": "List files changed in a PR with diffs; optionally include full file content",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "pr_number": {"type": "integer"},
+            "include_content": {"type": "boolean", "description": "Fetch full file content from the PR branch"},
+        },
+        "required": ["pr_number"],
+    },
+}
+
+TOOL_POST_PR_REVIEW: dict = {
+    "name": "post_pr_review",
+    "description": "Submit a PR review verdict",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "pr_number": {"type": "integer"},
+            "body": {"type": "string"},
+            "event": {"type": "string", "enum": ["APPROVE", "REQUEST_CHANGES", "COMMENT"]},
+        },
+        "required": ["pr_number", "body", "event"],
+    },
+}
+
+TOOL_MERGE_PR: dict = {
+    "name": "merge_pr",
+    "description": "Merge a pull request",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "pr_number": {"type": "integer"},
+            "merge_method": {"type": "string", "enum": ["merge", "squash", "rebase"]},
+        },
+        "required": ["pr_number"],
+    },
+}
+
+TOOL_BRANCH_EXISTS: dict = {
+    "name": "branch_exists",
+    "description": "Check whether a git branch exists",
+    "input_schema": {
+        "type": "object",
+        "properties": {"branch_name": {"type": "string"}},
+        "required": ["branch_name"],
+    },
+}
+
+TOOL_CREATE_SUB_ISSUE: dict = {
+    "name": "create_sub_issue",
+    "description": "Create a child issue linked to the parent",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "parent_issue_number": {"type": "integer"},
+            "title": {"type": "string"},
+            "body": {"type": "string"},
+            "label": {"type": "string"},
+        },
+        "required": ["parent_issue_number", "title", "body"],
+    },
+}
+
+# ── Sandbox tool schemas ───────────────────────────────────────────────────────
+
+TOOL_RUN_PYTHON: dict = {
+    "name": "run_python",
+    "description": "Execute Python code in an E2B sandbox; returns stdout + stderr",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "code": {"type": "string"},
+            "timeout": {"type": "integer", "description": "Seconds, default 30"},
+        },
+        "required": ["code"],
+    },
+}
+
+TOOL_RUN_PROJECT: dict = {
+    "name": "run_project",
+    "description": "Run a shell command in the E2B sandbox (use for tests and builds)",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string"},
+            "timeout": {"type": "integer", "description": "Seconds, default 120"},
+        },
+        "required": ["command"],
+    },
+}
+
+TOOL_RUN_COMMAND: dict = {
+    "name": "run_command",
+    "description": "Run a shell command in the E2B sandbox (use to verify docker builds or infra scripts)",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string"},
+            "timeout": {"type": "integer", "description": "Seconds, default 120"},
+        },
+        "required": ["command"],
+    },
+}
+
+# ── Composed tool sets ─────────────────────────────────────────────────────────
+
 TOOLS_ISSUE: list[dict] = [
     TOOL_GET_ISSUE,
     TOOL_GET_COMMENTS,
@@ -133,7 +244,6 @@ def execute_issue_tools(name: str, inputs: dict, agent_name: str) -> str | None:
     from tools.github_issues import (
         get_issue, get_comments, post_comment, update_label, update_issue_body,
     )
-
     if name == "get_issue":
         return str(get_issue(inputs["issue_number"]))
     if name == "get_comments":
@@ -153,7 +263,6 @@ def execute_issue_tools(name: str, inputs: dict, agent_name: str) -> str | None:
 def execute_git_tools(name: str, inputs: dict, agent_name: str) -> str | None:
     """Handle create_branch / commit_files / open_pr. Returns None if not recognised."""
     from tools.git import agent_branch, create_branch, commit_files, open_pr
-
     if name == "create_branch":
         branch = inputs.get("branch_name") or agent_branch(agent_name, inputs["issue_number"])
         return create_branch(branch)
@@ -201,3 +310,37 @@ def poll(
         except Exception:
             logger.exception(f"[{agent_name}] poll error")
         time.sleep(interval)
+
+
+# ── Agent service harness ──────────────────────────────────────────────────────
+
+
+def run_agent_service(
+    agent_name: str,
+    poll_labels: list[str],
+    tools: list[dict],
+    tool_executor: Callable,
+    prompt_file: Path,
+    *,
+    on_pickup: Callable[[dict], "bool | None"] | None = None,
+) -> None:
+    """Start the agent service: load prompt, resolve model, enter the poll loop.
+
+    on_pickup(issue) runs before the agent loop. Return False to skip that issue.
+    Model is read from {AGENT_NAME_UPPER}_MODEL env var, falling back to AGENT_DEFAULTS.
+    """
+    from agents.base import run_agent
+    from tools.models import AGENT_DEFAULTS
+
+    model = os.environ.get(
+        f"{agent_name.upper()}_MODEL",
+        AGENT_DEFAULTS.get(agent_name, AGENT_DEFAULTS["pm"]),
+    )
+    system_prompt = Path(prompt_file).read_text()
+
+    def handle(issue: dict) -> None:
+        if on_pickup is not None and on_pickup(issue) is False:
+            return
+        run_agent(issue["number"], agent_name, model, tools, system_prompt, tool_executor)
+
+    poll(agent_name, poll_labels, handle)
