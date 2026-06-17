@@ -1,0 +1,91 @@
+"""
+Agent harness — the loop every agent runs.
+No framework. Direct Anthropic SDK.
+"""
+import os
+import json
+import logging
+from typing import Any
+import anthropic
+
+logger = logging.getLogger(__name__)
+client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+
+def run_agent(
+    issue_number: int,
+    agent_name: str,
+    model: str,
+    tools: list[dict],
+    system_prompt: str,
+    tool_executor: callable,
+    max_iterations: int = 30,
+) -> str:
+    """
+    Core agent loop. Runs until end_turn or max_iterations.
+
+    tool_executor: callable(tool_name, tool_input) -> str
+    Returns the final text response.
+    """
+    # Build initial context from the issue
+    from tools.github_issues import get_issue, get_comments
+    issue = get_issue(issue_number)
+    comments = get_comments(issue_number)
+
+    history = [
+        {
+            "role": "user",
+            "content": (
+                f"Issue #{issue_number}: {issue['title']}\n\n"
+                f"Body:\n{issue['body']}\n\n"
+                f"Current labels: {', '.join(issue['labels'])}\n\n"
+                f"Comments ({len(comments)}):\n" +
+                "\n".join(f"  [{c['author']}] {c['body']}" for c in comments[-10:])
+            )
+        }
+    ]
+
+    logger.info(f"[{agent_name}] Starting on issue #{issue_number} with model {model}")
+
+    for iteration in range(max_iterations):
+        response = client.messages.create(
+            model=model,
+            max_tokens=8192,
+            system=system_prompt,
+            tools=tools,
+            messages=history,
+        )
+
+        # Append assistant response
+        history.append({"role": "assistant", "content": response.content})
+
+        if response.stop_reason == "end_turn":
+            # Extract final text
+            for block in response.content:
+                if hasattr(block, "text"):
+                    logger.info(f"[{agent_name}] Completed issue #{issue_number}")
+                    return block.text
+            return ""
+
+        if response.stop_reason == "tool_use":
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    logger.info(f"[{agent_name}] Calling tool: {block.name}")
+                    try:
+                        result = tool_executor(block.name, block.input)
+                    except Exception as e:
+                        result = f"Error: {e}"
+                        logger.error(f"[{agent_name}] Tool {block.name} failed: {e}")
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": str(result),
+                    })
+            history.append({"role": "user", "content": tool_results})
+        else:
+            logger.warning(f"[{agent_name}] Unexpected stop_reason: {response.stop_reason}")
+            break
+
+    logger.warning(f"[{agent_name}] Reached max iterations ({max_iterations})")
+    return ""
