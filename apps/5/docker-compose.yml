@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: barista-app
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=${PORT:-3000}
+      - DATABASE_PATH=/app/data/barista.db
+    volumes:
+      # Persist SQLite database across container restarts
+      - ./data:/app/data
+      # Hot-reload for development (optional, comment out for production-like testing)
+      - ./src:/app/src:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+volumes:
+  data:
+    driver: local

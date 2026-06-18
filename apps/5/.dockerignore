@@ -1,0 +1,64 @@
+# Node modules and lock files (rebuilt in container)
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+.pnpm-lock.yaml
+
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Testing and development
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js
+.jest
+.mocha
+coverage/
+
+# IDE and editor config
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+*.swn
+.env
+.env.local
+.env.*.local
+
+# CI/CD and build artifacts
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+dist/
+build/
+
+# Documentation and misc
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+.editorconfig
+.eslintrc*
+.prettierrc*
+.npmrc
+.nvmrc
+
+# Secrets (safety net)
+.env
+.env.*.local
+secrets/
+*.pem
+*.key
+
+# Temporary files
+*.tmp
+*.log
+.tmp/
