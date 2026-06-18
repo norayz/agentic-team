@@ -1,7 +1,10 @@
 import os
 from github import Github
+from github.GithubRetry import GithubRetry
+from urllib3 import Retry
 
-_g = Github(os.environ["GITHUB_TOKEN"])
+_retry = GithubRetry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+_g = Github(os.environ["GITHUB_TOKEN"], retry=_retry)
 _repo = _g.get_repo(os.environ["GITHUB_REPO"])
 
 REQUIRED_LABELS = [
