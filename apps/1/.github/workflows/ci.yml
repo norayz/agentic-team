@@ -24,17 +24,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r apps/1/requirements.txt
       
       - name: Lint with flake8 (if available)
         run: |
           pip install flake8 2>/dev/null || true
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+          flake8 apps/1 --count --select=E9,F63,F7,F82 --show-source --statistics || true
       
       - name: Run tests
         run: |
           pip install pytest pytest-asyncio 2>/dev/null || true
-          pytest tests/ -v || echo "No tests found or tests not configured"
+          pytest apps/1/tests/ -v || echo "No tests found or tests not configured"
   
   build-docker:
     runs-on: ubuntu-latest
@@ -48,11 +48,11 @@ jobs:
       
       - name: Build Docker image
         run: |
-          docker build -t app:${{ github.sha }} .
+          docker build -t todos-api:${{ github.sha }} -f apps/1/Dockerfile .
       
       - name: Test Docker image starts
         run: |
-          docker run -d --name test-container -p 8000:8000 app:${{ github.sha }}
+          docker run -d --name test-container -p 8000:8000 todos-api:${{ github.sha }}
           sleep 5
           docker inspect test-container --format='{{.State.Status}}' | grep -q running && echo "Container is running"
           curl -f http://localhost:8000/docs || echo "Health check endpoint not yet responding (expected during early development)"

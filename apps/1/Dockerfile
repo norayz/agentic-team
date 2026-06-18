@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
-COPY requirements.txt .
+COPY apps/1/requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
 # Stage 2: Runtime
@@ -24,9 +24,9 @@ RUN useradd -r -s /bin/false appuser
 COPY --from=builder /root/.local /home/appuser/.local
 
 # Copy application source
-COPY main.py .
-COPY src/ ./src/
-COPY requirements.txt .
+COPY apps/1/main.py .
+COPY apps/1/src/ ./src/
+COPY apps/1/requirements.txt .
 
 # Set environment variables
 ENV PATH=/home/appuser/.local/bin:$PATH \
