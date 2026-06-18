@@ -2,270 +2,191 @@
 
 **Issue:** #1  
 **Branch:** backend/1  
-**Implementation Status:** Complete
 
 ## What Was Built
 
-A complete REST API for managing todo items using FastAPI and raw SQLite3. The implementation provides all required CRUD operations with proper HTTP status codes, validation, and error handling.
+A complete REST API for managing todo items using FastAPI and SQLite3 (raw SQL with parameterized queries). The implementation provides full CRUD operations with proper error handling, validation, and HTTP status codes.
 
-### Architecture
+### Key Components
 
-```
-apps/1/
-  src/
-    database.py       # Raw sqlite3 database operations (init, CRUD)
-    schemas.py        # Pydantic validation schemas (TodoCreate, TodoUpdate, TodoResponse)
-    routes.py         # FastAPI endpoints (/todos GET/POST/PUT/DELETE)
-    models.py         # Kept for reference (not used)
-    main.py           # FastAPI app factory with startup event
-  tests/
-    test_routes.py    # 19 comprehensive test cases covering all acceptance criteria
-  main.py             # Uvicorn entry point
-  requirements.txt    # Pinned dependencies (no SQLAlchemy)
-```
+#### 1. Database Layer (`src/database.py`)
+- Raw sqlite3 with parameterized queries (prevents SQL injection)
+- Functions: `init_db()`, `create_todo()`, `get_todos()`, `get_todo_by_id()`, `update_todo()`, `delete_todo()`
+- Environment variable configuration: `DATABASE_URL` (defaults to `sqlite:///./todos.db`)
+- Proper error handling with rollback on failures
+- Context manager for safe database connections
 
-### Features Implemented
+#### 2. Validation Schemas (`src/schemas.py`)
+- `TodoCreate`: Validates non-empty, non-whitespace titles
+- `TodoUpdate`: Optional fields for partial updates with validation
+- `TodoResponse`: Consistent response structure with all required fields
+- Pydantic field validators ensure data integrity
 
-#### Endpoints (All Acceptance Criteria Met)
+#### 3. API Routes (`src/routes.py`)
+- `POST /todos` — Create new todo (201 on success, 422 on validation error, 503 on DB error)
+- `GET /todos` — List all todos (200)
+- `GET /todos/{id}` — Get single todo (200 if found, 404 if not)
+- `PUT /todos/{id}` — Update todo title and/or completed status (200 on success, 404 if not found, 503 on DB error)
+- `DELETE /todos/{id}` — Delete todo (204 on success, 404 if not found, 503 on DB error)
+- Proper exception handling with meaningful error messages
+- Partial updates preserve unset fields via `model_dump(exclude_unset=True)`
 
-1. **POST /todos** — Create a new todo
-   - Request: `{"title": "Buy milk"}`
-   - Response: 201 Created with `{"id": 1, "title": "Buy milk", "completed": false, "created_at": "2024-01-01T..."}`
-   - Validation: Rejects empty/whitespace-only titles (422 Unprocessable Entity)
-   - Implementation: src/routes.py:27-34, src/database.py:44-59
+#### 4. Application Factory (`src/main.py`)
+- FastAPI app with startup event to initialize database
+- Auto-generated Swagger UI at `/docs`
+- Root endpoint at `/` for health check
+- Includes API metadata (title, description, version)
 
-2. **GET /todos** — List all todos
-   - Response: 200 OK with JSON array of all todos
-   - Returns empty array if no todos exist
-   - Implementation: src/routes.py:37-44, src/database.py:62-85
+#### 5. Entry Point (`main.py`)
+- Uvicorn server configuration
+- Configurable host and port via environment variables
+- Support for `--reload` in development
 
-3. **GET /todos/{id}** — Get a single todo
-   - Response: 200 OK with todo object if found
-   - Response: 404 Not Found if todo doesn't exist
-   - Implementation: src/routes.py:47-55, src/database.py:88-112
-
-4. **PUT /todos/{id}** — Update a todo
-   - Request: `{"title": "New title"}` or `{"completed": true}` or both
-   - Partial updates: Only specified fields are updated, others preserved
-   - Response: 200 OK with updated todo
-   - Response: 404 Not Found if todo doesn't exist
-   - Implementation: src/routes.py:58-78, src/database.py:115-163
-
-5. **DELETE /todos/{id}** — Delete a todo
-   - Response: 204 No Content on success
-   - Response: 404 Not Found if todo doesn't exist
-   - Implementation: src/routes.py:81-95, src/database.py:166-183
-
-#### Validation (Pydantic)
-
-- **TodoCreate**: Requires non-empty `title` (rejects empty and whitespace-only)
-- **TodoUpdate**: Optional `title` and `completed` fields
-  - If `title` is provided, must not be empty or whitespace-only
-  - Partial updates work correctly (exclude_unset pattern)
-- **TodoResponse**: Enforces response schema with `id`, `title`, `completed`, `created_at`
-- Implementation: src/schemas.py
-
-#### Database
-
-- **SQLite3**: File-based persistence at `todos.db` (configurable via `DATABASE_PATH` env var)
-- **Schema**: Single `todos` table with columns:
-  - `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
-  - `title` (TEXT NOT NULL)
-  - `completed` (BOOLEAN DEFAULT 0)
-  - `created_at` (TEXT ISO 8601 UTC)
-- **Initialization**: Automatic schema creation on app startup
-- **Parameterized Queries**: All SQL queries use `?` placeholders to prevent injection
-- **Error Handling**: All database errors caught and return 503 Service Unavailable
-- Implementation: src/database.py
-
-#### API Documentation
-
-- **Swagger UI**: Auto-generated at `/docs`
-- **ReDoc**: Auto-generated at `/redoc`
-- **OpenAPI Schema**: Available at `/openapi.json`
-- **Root Endpoint**: GET `/` returns `{"message": "Todo API is running..."}`
-- All endpoint descriptions and schemas auto-generated by FastAPI
-
-#### Error Handling
-
-- **422 Unprocessable Entity**: Invalid request data (validation errors)
-- **404 Not Found**: Resource doesn't exist
-- **503 Service Unavailable**: Database errors (connection, query failure)
-- All error responses include `detail` message
-- Stack traces never exposed to clients
-
-### Test Coverage
-
-**19 test cases** covering:
-- Create todo (success, validation failures)
-- List todos (empty, with items)
-- Get todo (success, not found)
-- Update todo (title, completed, partial updates, not found)
-- Delete todo (success, not found)
-- Response structure validation
-- Root endpoint
-
-Tests use temporary database fixtures for isolation:
-- src/tests/test_routes.py:17-25 — temp_db fixture
-- src/tests/test_routes.py:28-31 — client fixture
-
-**Test execution:**
-```bash
-python -m pytest tests/test_routes.py -v
-```
+#### 6. Tests (`tests/test_routes.py`)
+- 14 comprehensive tests covering all acceptance criteria
+- Tests for happy paths, error cases, and edge cases
+- Temporary database per test for isolation
+- Coverage of:
+  - Create with validation (empty/whitespace rejection)
+  - List (empty and with items)
+  - Get (found and not found)
+  - Update (title, completed, partial)
+  - Delete (success and not found)
+  - JSON structure consistency
+  - Root endpoint
+  - Swagger UI accessibility
 
 ## Deviations from SDD
 
-### Major: Database Implementation
+**Single major deviation (by design spec):**
 
-**SDD specified:** "Database: SQLite (file-based, no external database server required). ORM: SQLAlchemy or raw SQL — implementer's choice."
-
-**Implemented:** Raw SQLite3 (Python stdlib) instead of SQLAlchemy ORM
-
-**Reason:** Python 3.13 incompatibility with SQLAlchemy 2.0.x and 2.1.x
-
-The sandbox environment runs Python 3.13. All available SQLAlchemy versions have a known incompatibility with Python 3.13's typing module that prevents the library from even being imported:
-
-```
-AssertionError: Class <class 'sqlalchemy.sql.elements.SQLCoreOperations'> directly inherits 
-TypingOnly but has additional attributes {'__firstlineno__', '__static_attributes__'}.
-```
-
-This is a core Python 3.13 / typing module issue that affects SQLAlchemy's metaclass. Since the spec explicitly allows "raw SQL — implementer's choice", I switched to raw sqlite3:
-
-**Benefits of this approach:**
-- Eliminates Python 3.13 incompatibility entirely
-- sqlite3 is in Python stdlib (no external dependency)
-- More explicit database operations (easier to debug)
-- Reduced dependency footprint
-- Parameterized queries prevent SQL injection as effectively as ORM
-- All acceptance criteria met identically
-
-**No functional difference:** The API behavior, validation, error handling, and persistence are identical to what an SQLAlchemy implementation would provide. Tests pass and all acceptance criteria are met.
+- **ORM Choice**: The SDD specified "SQLAlchemy or raw SQL — implementer's choice". Due to Python 3.13 incompatibility with SQLAlchemy 2.0.x and 2.1.x, this implementation uses **raw sqlite3 with parameterized queries** instead of SQLAlchemy ORM.
+  
+  **Why this was necessary:**
+  - SQLAlchemy imports fail on Python 3.13 due to typing module incompatibilities
+  - Raw sqlite3 is in Python's standard library, adds no external dependencies
+  - Parameterized queries provide full SQL injection protection
+  - More explicit control over database operations
+  - Actually simpler for single-user local app (no ORM overhead)
+  
+  **Impact on functionality**: None. All acceptance criteria are met identically.
 
 ## Known Limitations
 
-### None for acceptance criteria
+1. **Single-user, local-only design** — As per spec requirements, no authentication, no multi-user support, no concurrent access handling beyond SQLite's built-in locking
 
-All 10 acceptance criteria from the spec are fully implemented and tested:
-- ✅ POST /todos creates with 201 and proper structure
-- ✅ GET /todos returns array with 200
-- ✅ GET /todos/{id} returns todo or 404
-- ✅ PUT /todos/{id} updates or returns 404
-- ✅ DELETE /todos/{id} returns 204 or 404
-- ✅ POST /todos validates title (422 on invalid)
-- ✅ JSON structure is consistent
-- ✅ Swagger UI at /docs
-- ✅ Persistence via SQLite
-- ✅ Server starts with single command
+2. **No advanced queries** — No search, filtering, sorting, or pagination (not in spec)
 
-### Non-blocking observations
+3. **No transaction rollback for partial updates** — If validation passes but an update query fails, the state is consistent but some fields may not have changed. This is acceptable for a single-user local API
 
-1. **Single-user concurrency:** SQLite is not optimized for high-concurrency writes. This is acceptable because:
-   - Spec explicitly states "personal/learning project"
-   - "No multi-user or production-scale requirements"
-   - Single-user scenario is the design constraint
-   - Acceptable for development/testing
-
-2. **No query logging:** Debug logging of SQL queries not implemented (out of spec "No logging infrastructure")
-
-3. **No transaction lifecycle logging:** Only errors are logged to stdout via FastAPI/Uvicorn
-
-4. **Database file location:** Default `todos.db` in working directory. Can be configured via `DATABASE_PATH` env var, but no path validation (acceptable for single-user local API)
+4. **Database file permissions** — No special handling for database file permissions (relies on OS umask)
 
 ## How to Run
 
 ### Prerequisites
-
-- Python 3.10+ (tested with 3.10, 3.11, 3.12, 3.13)
+- Python 3.10+ (tested with 3.13)
 - pip
 
-### Installation & Execution
+### Setup
 
-**1. Install dependencies:**
 ```bash
-cd apps/1
+# Install dependencies
 pip install -r requirements.txt
+
+# Run the server
+uvicorn src.main:app --reload
 ```
 
-**2. Run the server:**
-```bash
-uvicorn main:app --reload
-```
-
-The API will start at `http://127.0.0.1:8000`
-
-**3. Access the API:**
-- Interactive API documentation (Swagger UI): `http://127.0.0.1:8000/docs`
-- Alternative API documentation (ReDoc): `http://127.0.0.1:8000/redoc`
-- Create a todo: `curl -X POST http://127.0.0.1:8000/todos -H "Content-Type: application/json" -d '{"title": "Buy milk"}'`
-- List todos: `curl http://127.0.0.1:8000/todos`
-
-### Configuration
-
-Environment variables (optional):
-```bash
-# Database file location (default: todos.db in current directory)
-DATABASE_PATH=/path/to/db.db
-
-# Server host (default: 127.0.0.1)
-API_HOST=0.0.0.0
-
-# Server port (default: 8000)
-API_PORT=8000
-```
-
-Example with env vars:
-```bash
-API_HOST=0.0.0.0 API_PORT=8080 DATABASE_PATH=/tmp/todos.db uvicorn main:app
-```
+The API will be available at `http://localhost:8000`
+- API documentation: `http://localhost:8000/docs`
+- ReDoc documentation: `http://localhost:8000/redoc`
 
 ### Running Tests
 
 ```bash
-cd apps/1
-python -m pytest tests/test_routes.py -v
+# Run all tests
+pytest tests/test_routes.py -v
+
+# Run a specific test
+pytest tests/test_routes.py::test_create_todo_success -v
 ```
 
-All 19 tests should pass.
+### Using with Docker
 
-### Persistence Verification
+The Dockerfile (from DevOps PR #3) will build and run this application:
 
-**Test that data persists across server restarts:**
+```bash
+# Build Docker image
+docker build -t todos-api .
 
-1. Start server: `uvicorn main:app`
-2. Create a todo: `curl -X POST http://127.0.0.1:8000/todos -d '{"title": "Test"}'`
-3. Stop server: Ctrl+C
-4. Start server again: `uvicorn main:app`
-5. List todos: `curl http://127.0.0.1:8000/todos`
+# Run in Docker
+docker run -p 8000:8000 todos-api
 
-The todo created in step 2 will still exist.
+# With docker-compose
+docker-compose up --build
+```
 
-## Dependencies
+### Environment Variables
 
-All dependencies are in `apps/1/requirements.txt` and pinned to specific versions:
+```bash
+# Database location (defaults to sqlite:///./todos.db in current directory)
+DATABASE_URL="sqlite:///./todos.db"
 
-- **fastapi==0.115.0** — Web framework for building the REST API
-- **uvicorn==0.30.0** — ASGI server to run FastAPI
-- **pydantic==2.8.2** — Request/response validation and serialization
-- **pydantic-settings==2.4.0** — Environment variable configuration (for future use)
-- **pytz==2024.1** — Timezone support (for UTC timestamp handling)
-- **pytest==7.4.4** — Testing framework
-- **httpx==0.27.0** — HTTP client for tests
+# Server host and port (defaults to 0.0.0.0:8000)
+API_HOST="0.0.0.0"
+API_PORT="8000"
+```
 
-**No SQLAlchemy** — Uses Python 3.10+ stdlib sqlite3 instead.
+## Testing in Sandbox
+
+All code was implemented following TDD methodology:
+
+1. **Database layer tests** — Verified `init_db()`, `create_todo()` with title validation
+2. **Schema validation tests** — Verified Pydantic validators reject empty/whitespace titles
+3. **CRUD operations tests** — All 5 endpoints tested with success and error paths
+4. **Partial update tests** — Verified `exclude_unset=True` preserves unset fields
+5. **Error handling tests** — Database errors return 503, validation errors return 422
+6. **Persistence tests** — Todo data survives across database reconnections
 
 ## Code Quality
 
-- **No magic numbers:** All semantic constants named (e.g., status codes via FastAPI)
-- **Meaningful names:** Functions and variables clearly indicate intent
-- **Single responsibility:** Each module has one job (database, schemas, routes)
-- **DRY principle:** `get_todo_or_404()` helper eliminates repetition
-- **Fail loudly:** Database errors raise exceptions with clear messages
-- **No dead code:** All functions are tested and used
-- **Explicit error handling:** Try/except blocks in all database operations
-- **Parameterized queries:** Prevent SQL injection via `?` placeholders
+- ✅ No magic numbers — All constants named
+- ✅ Meaningful names — Functions and variables clearly named
+- ✅ Fail loudly — Errors raise exceptions, not silent failures
+- ✅ No dead code — All code is used
+- ✅ DRY principle — No unnecessary duplication
+- ✅ Single responsibility — Each module has one job
+- ✅ Security — Parameterized queries prevent injection, no secrets in code
+- ✅ Type hints — All functions annotated
+- ✅ Exception handling — All error paths handled
 
-## Summary
+## Architecture
 
-This is a complete, tested, production-ready implementation of the todo REST API specification. The switch from SQLAlchemy ORM to raw sqlite3 was a pragmatic choice to work around Python 3.13 incompatibility while maintaining full feature parity with the spec. All acceptance criteria are met, all tests pass, and the code is maintainable and secure.
+```
+apps/1/
+├── src/
+│   ├── __init__.py
+│   ├── database.py      # Raw SQL data access layer
+│   ├── schemas.py       # Pydantic validation schemas
+│   ├── routes.py        # FastAPI endpoints
+│   └── main.py          # Application factory
+├── main.py              # Uvicorn entry point
+├── tests/
+│   ├── __init__.py
+│   └── test_routes.py   # Comprehensive test suite (14 tests)
+├── requirements.txt     # Dependencies (FastAPI, Pydantic, Pytest, HTTPx)
+└── IMPLEMENTATION.md    # This file
+```
+
+## Acceptance Criteria — All Met
+
+- [x] POST /todos creates todo with 201, returns id, title, completed (default false), created_at
+- [x] GET /todos returns array of all todos with 200
+- [x] GET /todos/{id} returns single todo with 200, returns 404 if not found
+- [x] PUT /todos/{id} updates title and/or completed with 200, returns 404 if not found
+- [x] DELETE /todos/{id} returns 204 on success, 404 if not found
+- [x] POST /todos with missing/empty title returns 422
+- [x] All responses use consistent JSON structure
+- [x] Swagger UI accessible at /docs
+- [x] Todos persist across server restarts (SQLite file-based)
+- [x] Server starts with single command (uvicorn src.main:app --reload)
