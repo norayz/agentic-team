@@ -1,50 +1,44 @@
-# Git
-.git
-.gitignore
-.gitattributes
-
-# Node
-node_modules
+# Development files
+node_modules/
 npm-debug.log*
-yarn-debug.log*
 yarn-error.log*
 .npm
 .eslintcache
 
-# IDEs
-.vscode
-.idea
+# Testing
+.mocha
+.nyc_output/
+coverage/
+*.test.js
+*.spec.js
+
+# Version control
+.git
+.gitignore
+.github
+
+# IDE
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
 .DS_Store
 
-# Testing
-.mocha
-.nyc_output
-coverage
-**/*.test.js
-**/*.spec.js
-
-# Development
+# Environment
+.env
 .env.local
 .env.*.local
-.env.development
-.env.test
 
 # Documentation
 README.md
-LICENSE
+CHANGELOG.md
 
 # CI/CD
-.github
 .gitlab-ci.yml
-.circleci
+.travis.yml
+Jenkinsfile
 
-# Build artifacts
-dist
-build
-*.tsbuildinfo
-
-# OS
-Thumbs.db
+# Build artifacts (if any)
+dist/
+build/

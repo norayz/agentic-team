@@ -9,20 +9,15 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      # Node environment
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3000
-      # Database location (mounted volume)
       - DB_PATH=/app/db/orders.db
-      # Logging
       - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
       # Persist SQLite database across restarts
       - ./db:/app/db
-      # Persist logs
+      # Persist application logs
       - ./logs:/app/logs
-      # Optional: hot-reload for development (comment out for production testing)
-      # - .:/app:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
