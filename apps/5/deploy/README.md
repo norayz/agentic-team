@@ -1,267 +1,309 @@
-# Barista Site — Deployment Guide
+# Deployment Guide — Barista Site
+
+This guide covers deploying the Barista Site (Express.js + SQLite) to production environments.
 
 ## Prerequisites
 
-- **Docker** 20.10+
-- **Docker Compose** 2.0+ (for local development)
-- **Node.js** 20+ (for running without Docker, if needed)
+- **Docker** 20.10+ (for container deployment)
+- **Docker Compose** 1.29+ (for local development and orchestration)
+- **Node.js** 20+ (for local development without Docker)
 
 ## Environment Variables
 
+All deployment configurations use environment variables. Do not hardcode values in the image.
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `NODE_ENV` | No | `production` | Node environment mode |
-| `PORT` | No | `3000` | Server listening port (inside container) |
-| `DATABASE_PATH` | No | `/app/data/barista.db` | Path to SQLite database file |
-| `HOST_PORT` | No | `3000` | Host port to expose (docker-compose only) |
-| `APP_NAME` | No | `Barista Site` | Display name for the application |
-| `COFFEE_SHOP_NAME` | No | `My Coffee House` | Name of the coffee shop (displayed in UI) |
+| `NODE_ENV` | No | `development` | Environment mode: `development`, `production`, or `staging` |
+| `PORT` | No | `3000` | Server listen port |
+| `DB_PATH` | No | `./db/orders.db` | Path to SQLite database file (must be writable) |
+| `LOG_LEVEL` | No | `info` | Logging verbosity: `debug`, `info`, `warn`, `error` |
 
 ## Local Development
 
-### Quick Start
+### With Docker Compose (Recommended)
 
 ```bash
-# Copy environment template
+# Copy the example environment file
 cp .env.example .env
 
-# (Optional) Edit .env with your values
-vim .env
-
-# Start the application with docker-compose
+# Start the application and its dependencies
 docker-compose up --build
 
-# The application will be available at:
-# http://localhost:3000       (customer menu and ordering)
-# http://localhost:3000/admin (order management - no auth, unlisted URL)
-```
+# The application will be available at http://localhost:3000
 
-### View Logs
+# View logs
+docker-compose logs -f
 
-```bash
-# Tail logs from the running container
-docker-compose logs -f app
-
-# View logs for a specific number of lines
-docker-compose logs --tail=50 app
-```
-
-### Stop the Application
-
-```bash
-# Stop the container
+# Stop the application
 docker-compose down
+```
 
-# Stop and remove volumes (clears database)
-docker-compose down -v
+### Without Docker (Requires Node.js 20+)
+
+```bash
+# Install dependencies
+npm install
+
+# Create database directory
+mkdir -p db logs
+
+# Start the application
+npm start
+
+# The application will be available at http://localhost:3000
 ```
 
 ## Production Deployment
 
-### Prerequisites
+### Option 1: Single Server (Recommended for <100 orders/day)
 
-- A Linux server or VPS with Docker installed
-- A persistent directory for SQLite database (e.g., `/opt/barista/data`)
-- Optional: A reverse proxy (nginx) for SSL termination and improved performance
-
-### Step 1: Prepare the Server
+#### 1. Build the Docker image
 
 ```bash
-# Create directories for app and data
-mkdir -p /opt/barista/data
-cd /opt/barista
-
-# Clone or copy the application code
-git clone <repository-url> .
-# or
-cp -r <local-path> .
+docker build -t barista-site:1.0.0 .
 ```
 
-### Step 2: Build the Docker Image
+#### 2. Create persistent storage directories
 
 ```bash
-# Build the production image
-cd /opt/barista/apps/5
-docker build -t barista:v1.0 .
+# On your production server
+mkdir -p /var/barista-site/db /var/barista-site/logs
+chown 1000:1000 /var/barista-site/db /var/barista-site/logs
 ```
 
-### Step 3: Create `.env` for Production
+#### 3. Run the container
 
 ```bash
-cat > /opt/barista/.env << EOF
-NODE_ENV=production
-PORT=3000
-DATABASE_PATH=/app/data/barista.db
-COFFEE_SHOP_NAME="My Coffee House"
-APP_NAME="Barista Site"
-EOF
-```
-
-### Step 4: Run the Container
-
-```bash
-# Run the container in detached mode
 docker run -d \
-  --name barista \
+  --name barista-site \
   --restart unless-stopped \
-  -p 3000:3000 \
-  -v /opt/barista/data:/app/data \
-  --env-file /opt/barista/.env \
-  barista:v1.0
-
-# Verify the container is running
-docker ps | grep barista
+  -p 80:3000 \
+  -v /var/barista-site/db:/app/db \
+  -v /var/barista-site/logs:/app/logs \
+  -e NODE_ENV=production \
+  -e LOG_LEVEL=info \
+  --health-interval 30s \
+  --health-timeout 5s \
+  --health-retries 3 \
+  barista-site:1.0.0
 ```
 
-### Step 5: Verify Health
+#### 4. Verify the container is healthy
 
 ```bash
-# Check container is healthy
-docker inspect barista --format='{{.State.Health.Status}}'
-
-# Should output: healthy
+docker ps  # STATUS should show "healthy"
 ```
 
-### Step 6: Optional — Configure Reverse Proxy (nginx)
+#### 5. Configure reverse proxy (optional but recommended)
 
-If you want to expose the app on a standard HTTP/HTTPS port:
+For production, run the container behind a reverse proxy (nginx, Caddy, or cloud load balancer):
 
 ```nginx
+# Example nginx configuration
+upstream barista {
+    server localhost:3000;
+}
+
 server {
     listen 80;
-    server_name your-domain.com;
-    
+    server_name coffee.example.com;
+
     location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_pass http://barista;
         proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-Reload nginx:
+### Option 2: Docker Compose in Production
+
 ```bash
-sudo systemctl reload nginx
+# Copy docker-compose.yml to production server
+scp docker-compose.yml user@production:/srv/barista-site/
+cd /srv/barista-site
+
+# Create .env file with production values
+cat > .env <<EOF
+NODE_ENV=production
+PORT=3000
+LOG_LEVEL=warn
+EOF
+
+# Create data directories
+mkdir -p db logs
+
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
 ```
 
-## Data Persistence
+### Option 3: Kubernetes (For future multi-instance deployment)
 
-The application uses SQLite with a file-based database stored at `DATABASE_PATH`. In the Docker setup:
+Refer to `deploy/k8s/` directory if adding Kubernetes support. Not required for v1.
 
-- **Local dev**: Database is in `./data/barista.db` (mounted as a volume)
-- **Production**: Database is in `/opt/barista/data/barista.db` (mounted as a volume)
+## Health Checks
 
-**Important**: Always mount a persistent volume for the `/app/data` directory so orders survive container restarts.
+The container includes a built-in health check that verifies:
+1. Server responds to HTTP requests on port 3000
+2. Health check endpoint returns HTTP 200
 
-## Backup
-
-To backup orders:
+Verify container health:
 
 ```bash
-# Copy the SQLite database
-cp /opt/barista/data/barista.db /opt/barista/data/barista.db.backup
-
-# Or from docker:
-docker cp barista:/app/data/barista.db ./barista.db.backup
+docker inspect barista-site --format='{{.State.Health.Status}}'
+# Output: healthy, unhealthy, or none
 ```
 
-## Health Check
+## Database Backups
 
-The container exposes a health endpoint at `GET /health` (every 30 seconds). To check manually:
+SQLite stores all data in a single file (`orders.db`). Backup strategies:
+
+### Daily Backup
 
 ```bash
-# From inside the container or if port 3000 is accessible:
-curl http://localhost:3000/health
+#!/bin/bash
+# backup-barista.sh
 
-# Or check docker health status:
-docker inspect barista --format='{{.State.Health.Status}}'
+BACKUP_DIR="/backups/barista-site"
+DB_PATH="/var/barista-site/db/orders.db"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p "$BACKUP_DIR"
+cp "$DB_PATH" "$BACKUP_DIR/orders_$TIMESTAMP.db"
+
+# Keep only last 30 days
+find "$BACKUP_DIR" -name "*.db" -mtime +30 -delete
+```
+
+Add to crontab:
+
+```bash
+0 2 * * * /usr/local/bin/backup-barista.sh
+```
+
+## Monitoring and Logging
+
+### View Container Logs
+
+```bash
+# Real-time logs
+docker logs -f barista-site
+
+# Last 100 lines
+docker logs --tail 100 barista-site
+
+# Logs from the last hour
+docker logs --since 1h barista-site
+```
+
+### Log Rotation
+
+Configure Docker to rotate logs:
+
+```bash
+docker run -d \
+  --log-driver json-file \
+  --log-opt max-size=10m \
+  --log-opt max-file=5 \
+  barista-site:1.0.0
+```
+
+## Troubleshooting
+
+### Container fails to start
+
+```bash
+# Check logs
+docker logs barista-site
+
+# Verify environment variables
+docker inspect barista-site --format='{{.Config.Env}}'
+
+# Check database permissions
+docker exec barista-site ls -l /app/db/
+```
+
+### Database is locked error
+
+SQLite may report "database is locked" if multiple processes write simultaneously. This is rare in low-traffic scenarios but can occur if:
+- The server was not shut down cleanly
+- Multiple instances are accessing the same database file
+
+Solution: Remove stale lock files and restart:
+
+```bash
+rm /var/barista-site/db/orders.db-shm
+rm /var/barista-site/db/orders.db-wal
+docker restart barista-site
+```
+
+### High memory usage
+
+Node.js has default memory limits. If seeing OOM errors:
+
+```bash
+docker run -d \
+  -m 512m \
+  --memory-swap 512m \
+  barista-site:1.0.0
+```
+
+## Performance Tuning
+
+### SQLite Configuration
+
+For better concurrency with multiple orders arriving simultaneously, the app should set pragmas in OrderStore:
+
+```javascript
+db.run('PRAGMA journal_mode = WAL;');  // Write-Ahead Logging
+db.run('PRAGMA synchronous = NORMAL;');
+db.run('PRAGMA cache_size = -64000;');  // 64MB cache
+```
+
+These should be configured in the backend (see app initialization).
+
+### Container Resource Limits
+
+For a single coffee shop location (<100 orders/day):
+
+```bash
+docker run -d \
+  --cpus 0.5 \
+  -m 256m \
+  barista-site:1.0.0
 ```
 
 ## Updating the Application
 
-1. Rebuild the image:
-   ```bash
-   docker build -t barista:v1.1 .
-   ```
-
-2. Stop the old container:
-   ```bash
-   docker stop barista
-   docker rm barista
-   ```
-
-3. Start the new container (preserving the data volume):
-   ```bash
-   docker run -d \
-     --name barista \
-     --restart unless-stopped \
-     -p 3000:3000 \
-     -v /opt/barista/data:/app/data \
-     --env-file /opt/barista/.env \
-     barista:v1.1
-   ```
-
-## Troubleshooting
-
-### Container exits immediately
-
-Check logs:
 ```bash
-docker logs barista
+# Stop the running container
+docker stop barista-site
+docker rm barista-site
+
+# Build new image
+docker build -t barista-site:1.0.1 .
+
+# Run updated container (database persists in volume)
+docker run -d \
+  --name barista-site \
+  --restart unless-stopped \
+  -p 80:3000 \
+  -v /var/barista-site/db:/app/db \
+  -v /var/barista-site/logs:/app/logs \
+  -e NODE_ENV=production \
+  barista-site:1.0.1
 ```
 
-Common causes:
-- Missing `node_modules` — rebuild image
-- Incorrect `DATABASE_PATH` — ensure `/app/data` is writable
-- Port already in use — change `HOST_PORT` or kill the conflicting process
+## Support and Issues
 
-### Health check failing
-
-Verify the app is responding:
-```bash
-curl http://localhost:3000
-```
-
-If it hangs, the app may not have started. Check logs and ensure sufficient resources.
-
-### Database locked errors
-
-If you see `database is locked`, this can happen if:
-- Multiple container instances are running on the same database
-- The container crashed while writing to the database
-
-Solution: Use only one container instance per database, or implement database connection pooling.
-
-### Orders not persisting after restart
-
-Ensure the data volume is mounted:
-```bash
-docker inspect barista | grep -A 10 Mounts
-```
-
-The output should show `/app/data` mounted to a persistent host path.
-
-## Monitoring
-
-For production, consider:
-- **Container logs** — Collect with `docker logs` or a log aggregator
-- **Health checks** — Periodically call `GET /health`
-- **Resource usage** — Monitor CPU and memory with `docker stats barista`
-- **Database size** — Monitor `/opt/barista/data/barista.db` file size
-
-## Security Notes
-
-- The admin page (`/admin`) is **not password-protected**. It is accessed via an unlisted URL and intended for a single operator.
-- In a future version, add authentication (e.g., basic auth, OAuth) if multi-operator access is needed.
-- Never expose the `/admin` URL in search engines or public documentation.
-- The application runs as a non-root user (`appuser`) inside the container for reduced attack surface.
-
-## Support
-
-For issues or questions, refer to:
-- Application logs: `docker logs barista`
-- Container status: `docker inspect barista`
-- Issue tracker: [project repository]
+For deployment issues, check:
+1. Docker container logs: `docker logs barista-site`
+2. Database file permissions: `ls -l /var/barista-site/db/`
+3. Firewall rules: Ensure port 80/443 is open to clients
+4. Reverse proxy configuration: If using nginx/Caddy, verify upstream routing
