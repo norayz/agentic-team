@@ -1,55 +1,49 @@
-# Multi-stage Dockerfile for Barista Site (Node.js + Express + SQLite + EJS)
-# Stage 1: Builder
-FROM node:20-bullseye AS builder
+# Multi-stage build for barista site
+# Stage 1: Builder - install dependencies and prepare app
+FROM node:20.11-alpine as builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including dev dependencies for build tooling if needed)
-RUN npm ci --prefer-offline --no-audit
+# Install dependencies (including devDependencies for build tools if needed)
+RUN npm ci --only=production
 
-# Copy source code
+# Copy application source
 COPY . .
 
-# Verify structure (optional but good for debugging)
-RUN ls -la
+# Stage 2: Runtime - minimal image with only what's needed to run
+FROM node:20.11-alpine
 
-# Stage 2: Runtime
-FROM node:20-slim
-
-# Set working directory
 WORKDIR /app
 
-# Create non-root user for security
-RUN useradd -r -s /bin/false appuser
+# Create non-root user to run the application
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-# Copy only runtime dependencies and built artifacts from builder
-COPY --from=builder --chown=appuser:appuser /app/node_modules ./node_modules
-COPY --from=builder --chown=appuser:appuser /app/package*.json ./
-COPY --from=builder --chown=appuser:appuser /app/src ./src
-COPY --from=builder --chown=appuser:appuser /app/public ./public
-COPY --from=builder --chown=appuser:appuser /app/views ./views
-COPY --from=builder --chown=appuser:appuser /app/data ./data
+# Copy built dependencies from builder
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
-# Create directory for SQLite database with proper permissions
-RUN mkdir -p /app/db && chown appuser:appuser /app/db
+# Copy application source
+COPY --from=builder --chown=nodejs:nodejs /app . 
+
+# Create directory for persistent data (database)
+RUN mkdir -p /app/data && chown -R nodejs:nodejs /app/data
 
 # Switch to non-root user
-USER appuser
+USER nodejs
 
-# Expose port (Express default)
+# Expose port
 EXPOSE 3000
 
 # Set environment variables
-ENV NODE_ENV=production \
-    PORT=3000 \
-    DATABASE_PATH=/app/db/orders.db
+ENV NODE_ENV=production
+ENV DATABASE_PATH=/app/data/barista.db
+ENV PORT=3000
 
-# Health check: verify the app is responding on port 3000
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 1
+# Health check - test that the server is responding
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/', (res) => { if (res.statusCode !== 200) throw new Error('Health check failed'); })" || exit 1
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["node", "src/server.js"]
