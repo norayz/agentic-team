@@ -1,66 +1,55 @@
 # Git
 .git
 .gitignore
-.gitattributes
-
-# Version control
-.hg
-.svn
+.github
 
 # Dependencies
-node_modules/
-
-# Package manager logs
-npm-debug.log*
-npm-error.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
+node_modules
+npm-debug.log
+yarn-error.log
+package-lock.json
+.npm
 
 # Testing
-.nyc_output/
-coverage/
-.mocha_cache/
-.jest_cache/
-
-# Development
-.env
-.env.local
-.env.*.local
-.DS_Store
-Thumbs.db
-
-# Build artifacts
-dist/
-build/
-.next/
-out/
+.mocha
+.nyc_output
+coverage
+test
+tests
+*.test.js
+*.spec.js
 
 # IDE
-.vscode/
-.idea/
+.vscode
+.idea
 *.swp
 *.swo
 *~
-.project
-.classpath
-.settings/
-*.sublime-project
-*.sublime-workspace
+.DS_Store
+.editorconfig
 
-# Documentation
-README.md
-docs/
-.github/
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist
+build
+.cache
 
 # CI/CD
-.github/workflows/
+.github
 .gitlab-ci.yml
 .travis.yml
 
-# Misc
-.editorconfig
-.prettierrc
-.eslintrc*
-rollup.config.js
-.pre-commit-config.yaml
+# Documentation
+README.md
+CHANGELOG.md
+
+# Runtime database (keep fresh on each container start)
+data/*.db
+data/*.db-journal
+
+# OS
+Thumbs.db
