@@ -1,0 +1,66 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Version control
+.hg
+.svn
+
+# Dependencies
+node_modules/
+
+# Package manager logs
+npm-debug.log*
+npm-error.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Testing
+.nyc_output/
+coverage/
+.mocha_cache/
+.jest_cache/
+
+# Development
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Documentation
+README.md
+docs/
+.github/
+
+# CI/CD
+.github/workflows/
+.gitlab-ci.yml
+.travis.yml
+
+# Misc
+.editorconfig
+.prettierrc
+.eslintrc*
+rollup.config.js
+.pre-commit-config.yaml
