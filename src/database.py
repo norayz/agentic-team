@@ -1,27 +1,27 @@
-"""Database initialization and session management."""
+"""Database configuration and session management."""
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 from src.models import Base
 
-# Use environment variable for database URL, default to local SQLite
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///todos.db")
+# Determine database URL from environment or use default
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./todos.db")
 
+# Create engine
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
 )
 
+# Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
-def init_db():
-    """Initialize the database, creating all tables."""
-    Base.metadata.create_all(bind=engine)
+# Create tables
+Base.metadata.create_all(bind=engine)
 
 
-def get_db() -> Session:
-    """Get a database session for dependency injection."""
+def get_db():
+    """Dependency injection function for FastAPI."""
     db = SessionLocal()
     try:
         yield db
