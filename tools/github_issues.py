@@ -15,7 +15,7 @@ REQUIRED_LABELS = [
     {"name": "in-dev",                 "color": "e99695", "description": "Under active development"},
     {"name": "cr-review",              "color": "f9d0c4", "description": "Code review in progress"},
     {"name": "in-qa",                  "color": "0075ca", "description": "In QA testing"},
-    {"name": "in-devops",              "color": "0075ca", "description": "DevOps deploying"},
+    {"name": "blocked",                "color": "d73a4a", "description": "Blocked, needs human intervention"},
     {"name": "tl-final-review",        "color": "fef2c0", "description": "Team Lead final review"},
     {"name": "done",                   "color": "0e8a16", "description": "Completed"},
 ]
@@ -42,7 +42,7 @@ def get_comments(issue_number: int) -> list[dict]:
 
 
 def post_comment(issue_number: int, agent_name: str, message: str) -> None:
-    _repo.get_issue(issue_number).create_comment(f"[{agent_name.upper()}] {message}")
+    _repo.get_issue(issue_number).create_comment(message)
 
 
 def update_label(issue_number: int, new_label: str) -> None:

@@ -10,7 +10,9 @@ from typing import Any
 import anthropic
 
 logger = logging.getLogger(__name__)
-client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+client = anthropic.AnthropicBedrock(
+    aws_region=os.environ.get("AWS_REGION", "eu-central-1"),
+)
 
 
 def run_agent(
@@ -48,6 +50,8 @@ def run_agent(
 
     logger.info(f"[{agent_name}] Starting on issue #{issue_number} with model {model}")
 
+    consecutive_errors: dict[str, int] = {}
+
     for iteration in range(max_iterations):
         # Trim context window: keep first message + last 16 if history too long
         if len(history) > 20:
@@ -58,7 +62,7 @@ def run_agent(
             try:
                 response = client.messages.create(
                     model=model,
-                    max_tokens=8192,
+                    max_tokens=16384,
                     system=system_prompt,
                     tools=tools,
                     messages=history,
@@ -91,9 +95,13 @@ def run_agent(
                     logger.info(f"[{agent_name}] Calling tool: {block.name}")
                     try:
                         result = tool_executor(block.name, block.input)
+                        consecutive_errors.pop(block.name, None)
                     except Exception as e:
                         result = f"Error: {e}"
                         logger.error(f"[{agent_name}] Tool {block.name} failed: {e}")
+                        consecutive_errors[block.name] = consecutive_errors.get(block.name, 0) + 1
+                        if consecutive_errors[block.name] >= 3:
+                            result += " — This tool has failed 3 times in a row. Do NOT retry it. Work around the issue or skip this step and proceed."
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,

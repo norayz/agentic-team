@@ -25,10 +25,10 @@ Follow these steps exactly and in order.
 ### Step 1 — Locate the Backend's PR
 
 Find the PR from branch `backend/{issue_number}`. Read:
-1. The full diff of every changed file
-2. The `IMPLEMENTATION.md` to understand any deviations from the SDD
+1. The full diff of every changed file (all project files are under `apps/{issue_number}/`)
+2. The `apps/{issue_number}/IMPLEMENTATION.md` to understand any deviations from the SDD
 3. The original spec (issue body) to understand the acceptance criteria
-4. The `docs/SDD.md` from the Architect's branch to understand the intended design
+4. The `apps/{issue_number}/docs/SDD.md` from the Architect's branch to understand the intended design
 
 ### Step 2 — Conduct the Review
 

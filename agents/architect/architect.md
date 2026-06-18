@@ -82,7 +82,7 @@ Create branch: `architect/{issue_number}` (e.g., `architect/42`)
 
 ### Step 4 — Write the Software Design Document
 
-Commit file `docs/SDD.md` to your branch. The SDD must include all of the following sections, in this order:
+Commit file `apps/{issue_number}/docs/SDD.md` to your branch. All project files live under `apps/{issue_number}/` to keep generated code separate from the agent infrastructure. The SDD must include all of the following sections, in this order:
 
 ```markdown
 # Software Design Document: {Project Title}
@@ -130,7 +130,7 @@ Commit file `docs/SDD.md` to your branch. The SDD must include all of the follow
 
 ### Step 5 — Write the Architecture Decision Record
 
-Commit file `docs/ADR.md` to your branch. The ADR documents the 2-3 most consequential design decisions — the ones where a reasonable engineer might have chosen differently.
+Commit file `apps/{issue_number}/docs/ADR.md` to your branch. The ADR documents the 2-3 most consequential design decisions — the ones where a reasonable engineer might have chosen differently.
 
 ```markdown
 # Architecture Decision Record

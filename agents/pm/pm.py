@@ -18,7 +18,7 @@ def on_pickup(issue: dict) -> None:
 def main():
     run_agent_service(
         AGENT_NAME,
-        ["new", "pm-revision"],
+        ["new", "pm-revision", "pm-drafting"],
         TOOLS,
         tool_executor,
         Path(__file__).parent / "pm.md",

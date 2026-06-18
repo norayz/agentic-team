@@ -1,13 +1,13 @@
 import os
 import base64
-from github import Github, GithubException
+from github import Github, GithubException, InputGitTreeElement
 
 _g = Github(os.environ["GITHUB_TOKEN"])
 _repo = _g.get_repo(os.environ["GITHUB_REPO"])
 
 
 def agent_branch(agent_name: str, issue_number: int) -> str:
-    return f"{agent_name}/issue-{issue_number}"
+    return f"{agent_name}/{issue_number}"
 
 
 def create_branch(name: str) -> str:
@@ -27,23 +27,20 @@ def commit_files(branch: str, files: list[dict], message: str) -> None:
     files = [{"path": "src/foo.py", "content": "..."}]
     """
     ref = _repo.get_git_ref(f"heads/{branch}")
-    base_sha = _repo.get_git_commit(ref.object.sha).tree.sha
+    base_commit = _repo.get_git_commit(ref.object.sha)
 
-    blobs = [
-        {
-            "path": f["path"],
-            "mode": "100644",
-            "type": "blob",
-            "sha": _repo.create_git_blob(
-                base64.b64encode(f["content"].encode()).decode(), "base64"
-            ).sha,
-        }
+    elements = [
+        InputGitTreeElement(
+            path=f["path"],
+            mode="100644",
+            type="blob",
+            content=f["content"],
+        )
         for f in files
     ]
 
-    new_tree = _repo.create_git_tree(blobs, base_tree=_repo.get_git_tree(base_sha))
-    parent = _repo.get_git_commit(ref.object.sha)
-    new_commit = _repo.create_git_commit(message, new_tree, [parent])
+    new_tree = _repo.create_git_tree(elements, base_tree=base_commit.tree)
+    new_commit = _repo.create_git_commit(message, new_tree, [base_commit])
     ref.edit(sha=new_commit.sha)
 
 

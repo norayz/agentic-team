@@ -1,17 +1,25 @@
-# Model name constants
-OPUS = "claude-opus-4-8"
-SONNET = "claude-sonnet-4-6"
-HAIKU = "claude-haiku-4-5-20251001"
+# Model name constants (Bedrock inference profile IDs)
+OPUS = "eu.anthropic.claude-opus-4-6-v1"
+SONNET = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+HAIKU = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 # Default models per agent role
 AGENT_DEFAULTS = {
     "pm": OPUS,
     "team_lead": OPUS,
     "architect": SONNET,
-    "backend": HAIKU,
+    "backend": SONNET,
     "code_reviewer": SONNET,
     "qa": HAIKU,
     "devops": HAIKU,
+}
+
+# Minimum model floor — TL cannot assign below this
+MODEL_TIER = {HAIKU: 0, SONNET: 1, OPUS: 2}
+AGENT_MIN_MODEL = {
+    "architect": SONNET,
+    "code_reviewer": SONNET,
+    "backend": HAIKU,
 }
 
 
@@ -20,6 +28,7 @@ def get_tl_model_assignment(issue_number: int, agent_name: str) -> str | None:
 
     Looks for a comment containing '[TEAM LEAD]' and 'Model assignments:',
     then parses out the line '- {agent_name}: {model}'.
+    Enforces minimum model floor per agent.
     Returns the model string if found, None otherwise.
     """
     from tools.github_issues import get_comments
@@ -35,5 +44,8 @@ def get_tl_model_assignment(issue_number: int, agent_name: str) -> str | None:
             if line.startswith(prefix):
                 model = line[len(prefix):].strip()
                 if model:
+                    min_model = AGENT_MIN_MODEL.get(agent_name)
+                    if min_model and MODEL_TIER.get(model, 0) < MODEL_TIER.get(min_model, 0):
+                        return min_model
                     return model
     return None

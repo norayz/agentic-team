@@ -78,12 +78,12 @@ _FILE_ITEM = {
 
 TOOL_CREATE_BRANCH: dict = {
     "name": "create_branch",
-    "description": "Create a git branch for this task (e.g. backend/issue-42)",
+    "description": "Create a git branch for this task (e.g. backend/42)",
     "input_schema": {
         "type": "object",
         "properties": {
             "issue_number": {"type": "integer"},
-            "branch_name": {"type": "string", "description": "Override; defaults to {role}/issue-{n}"},
+            "branch_name": {"type": "string", "description": "Override; defaults to {role}/{n}"},
         },
         "required": ["issue_number"],
     },
@@ -271,7 +271,7 @@ def poll(
     agent_name: str,
     labels: list[str],
     handler: Callable[[dict], None],
-    interval: int = 10,
+    interval: int = 3,
 ) -> None:
     """Blocking poll loop. Skips issues already in-flight for this agent."""
     from tools.github_issues import get_issues_by_label
@@ -299,6 +299,32 @@ def poll(
         time.sleep(interval)
 
 
+# ── Human reply watcher ───────────────────────────────────────────────────────
+
+AGENT_PREFIXES = ("[PM]", "[TEAM LEAD]", "[ARCHITECT]",
+                  "[BACKEND]", "[CODE REVIEWER]", "[QA]", "[DEVOPS]")
+
+
+def _start_human_reply_watcher(agent_name: str) -> None:
+    """Background thread: flip waiting-for-human → pm-revision on human reply."""
+    import threading
+    from tools.github_issues import get_issues_by_label, get_comments, update_label
+
+    def _watch():
+        while True:
+            try:
+                for issue in get_issues_by_label("waiting-for-human"):
+                    comments = get_comments(issue["number"])
+                    if comments and not comments[-1]["body"].startswith(AGENT_PREFIXES):
+                        update_label(issue["number"], "pm-revision")
+                        logger.info(f"[{agent_name}] human replied on #{issue['number']}, flipped to pm-revision")
+            except Exception:
+                logger.exception(f"[{agent_name}] human reply watcher error")
+            time.sleep(5)
+
+    threading.Thread(target=_watch, daemon=True).start()
+
+
 # ── Agent service harness ──────────────────────────────────────────────────────
 
 
@@ -318,6 +344,9 @@ def run_agent_service(
     """
     from agents.base import run_agent
     from tools.models import AGENT_DEFAULTS, get_tl_model_assignment
+
+    if agent_name == "pm":
+        _start_human_reply_watcher(agent_name)
 
     model = os.environ.get(
         f"{agent_name.upper()}_MODEL",

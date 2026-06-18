@@ -27,7 +27,7 @@ Follow these steps exactly and in order.
 
 ### Step 1 — Read the SDD
 
-Find the Architect's PR (branch: `architect/{issue_number}`). Read `docs/SDD.md` in full. This is your blueprint. Also re-read the original issue spec to ensure you understand the acceptance criteria — these are what QA will test you against.
+Find the Architect's PR (branch: `architect/{issue_number}`). Read `apps/{issue_number}/docs/SDD.md` in full. This is your blueprint. Also re-read the original issue spec to ensure you understand the acceptance criteria — these are what QA will test you against.
 
 ### Step 2 — Confirm Your Model Assignment
 
@@ -50,21 +50,22 @@ Do not proceed to Step 5 if the code fails in the sandbox. Debug and fix it firs
 
 ### Step 5 — Structure Your Code
 
-Organize files following the SDD's Module Breakdown. Use `src/` as the root for source code:
+Organize files following the SDD's Module Breakdown. All project files live under `apps/{issue_number}/` to keep generated code separate from the agent infrastructure. Use `apps/{issue_number}/src/` as the root for source code:
 
 ```
-src/
-  {module_name}/
-    {file}.{ext}
-  main.{ext}          # entry point
-IMPLEMENTATION.md
+apps/{issue_number}/
+  src/
+    {module_name}/
+      {file}.{ext}
+    main.{ext}          # entry point
+  IMPLEMENTATION.md
 ```
 
 Follow the SDD module breakdown exactly. If you implement a module differently than specified, document it.
 
 ### Step 6 — Write IMPLEMENTATION.md
 
-Create `IMPLEMENTATION.md` at the repo root. Be honest and specific:
+Create `apps/{issue_number}/IMPLEMENTATION.md`. Be honest and specific:
 
 ```markdown
 # Implementation Notes
@@ -90,7 +91,7 @@ Create `IMPLEMENTATION.md` at the repo root. Be honest and specific:
 
 ### Step 7 — Commit All Files
 
-Commit all source files and `IMPLEMENTATION.md` to your branch `backend/{issue_number}`.
+Commit all source files under `apps/{issue_number}/` and `apps/{issue_number}/IMPLEMENTATION.md` to your branch `backend/{issue_number}`.
 
 Commit message format: `feat(#{issue_number}): implement {brief description}`
 

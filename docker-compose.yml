@@ -8,6 +8,7 @@ services:
     env_file: .env
     volumes:
       - ./workspace:/workspace
+      - ~/.aws:/root/.aws:ro
     networks:
       - agentic-net
 
@@ -17,6 +18,8 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: pm
+    volumes:
+      - ~/.aws:/root/.aws:ro
     depends_on:
       - orchestrator
     networks:
@@ -28,6 +31,8 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: team_lead
+    volumes:
+      - ~/.aws:/root/.aws:ro
     depends_on:
       - orchestrator
     networks:
@@ -39,6 +44,8 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: architect
+    volumes:
+      - ~/.aws:/root/.aws:ro
     depends_on:
       - orchestrator
     networks:
@@ -50,6 +57,8 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: backend
+    volumes:
+      - ~/.aws:/root/.aws:ro
     depends_on:
       - orchestrator
     networks:
@@ -61,6 +70,8 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: code_reviewer
+    volumes:
+      - ~/.aws:/root/.aws:ro
     depends_on:
       - orchestrator
     networks:
@@ -72,6 +83,8 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: qa
+    volumes:
+      - ~/.aws:/root/.aws:ro
     depends_on:
       - orchestrator
     networks:
@@ -83,6 +96,8 @@ services:
     env_file: .env
     environment:
       AGENT_NAME: devops
+    volumes:
+      - ~/.aws:/root/.aws:ro
     depends_on:
       - orchestrator
     networks:

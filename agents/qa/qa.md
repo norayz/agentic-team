@@ -89,9 +89,9 @@ Read the original issue body. Extract every acceptance criterion. These are your
 ### Step 2 — Read the Implementation
 
 Find the Backend's PR (branch: `backend/{issue_number}`). Read:
-1. All source files in `src/`
-2. `IMPLEMENTATION.md` — especially the "Known Limitations" section
-3. The SDD from `docs/SDD.md` (Architect's branch) for intended behavior
+1. All source files in `apps/{issue_number}/src/`
+2. `apps/{issue_number}/IMPLEMENTATION.md` — especially the "Known Limitations" section
+3. The SDD from `apps/{issue_number}/docs/SDD.md` (Architect's branch) for intended behavior
 
 Note any edge cases the implementation might not handle.
 
@@ -105,9 +105,9 @@ Create branch: `qa/{issue_number}` (e.g., `qa/42`)
 
 ### Step 5 — Write Tests
 
-Write a test suite in `tests/`. Structure:
+Write a test suite in `apps/{issue_number}/tests/`. All project files live under `apps/{issue_number}/` to keep generated code separate from the agent infrastructure. Structure:
 ```
-tests/
+apps/{issue_number}/tests/
   test_unit.{ext}         # Pure logic tests, no I/O
   test_integration.{ext}  # Tests that wire modules together
   test_acceptance.{ext}   # One test per acceptance criterion from the spec
@@ -135,7 +135,7 @@ For each acceptance criterion:
 This step is mandatory. Use `run_project` (or appropriate runtime) to actually execute your test suite.
 
 ```
-run_project: cd /workspace && python -m pytest tests/ -v 2>&1
+run_project: cd /workspace/apps/{issue_number} && python -m pytest tests/ -v 2>&1
 ```
 
 Record:
@@ -148,7 +148,7 @@ If tests fail that you believe reflect a bug in the implementation (not your tes
 
 ### Step 7 — Commit Test Files
 
-Commit all files in `tests/` to branch `qa/{issue_number}`.
+Commit all files in `apps/{issue_number}/tests/` to branch `qa/{issue_number}`.
 
 Commit message: `test(#{issue_number}): add test suite for {spec title}`
 
