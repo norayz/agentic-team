@@ -1,0 +1,24 @@
+name: Docker Compose Test
+
+on:
+  push:
+    branches: [ main, 'backend/**', 'devops/**' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  compose-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate docker-compose syntax
+        run: cd apps/5 && docker-compose config > /dev/null
+      
+      - name: Build and test docker-compose
+        run: |
+          cd apps/5
+          docker-compose up -d
+          sleep 10
+          docker-compose ps | grep running
+          docker-compose down
