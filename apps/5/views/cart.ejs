@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cart - Coffee House</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header>
+    <h1>☕ Coffee House</h1>
+    <nav>
+      <a href="/">Menu</a>
+      <a href="/cart" class="cart-link">Cart <span id="cart-count">(0)</span></a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h2>Your Cart</h2>
+    
+    <div id="cart-items"></div>
+    <div id="cart-total" class="cart-total"></div>
+    
+    <form id="order-form" method="POST" action="/order" style="display: none;">
+      <h3>Order Details</h3>
+      <input type="hidden" name="items" id="items" required>
+      
+      <div class="form-group">
+        <label for="customer_name">Your Name:</label>
+        <input type="text" id="customer_name" name="customer_name" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="pickup_time">Pickup Time:</label>
+        <input type="time" id="pickup_time" name="pickup_time" required>
+      </div>
+      
+      <button type="submit" class="btn btn-primary btn-large">Place Order</button>
+    </form>
+  </main>
+
+  <script src="/js/cart.js"></script>
+  <script>
+    displayCart();
+  </script>
+</body>
+</html>

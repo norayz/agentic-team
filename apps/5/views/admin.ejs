@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Orders</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header>
+    <h1>☕ Coffee House - Admin</h1>
+    <nav>
+      <a href="/">Customer Site</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h2>Orders</h2>
+    
+    <% if (orders.length === 0) { %>
+      <p>No orders yet.</p>
+    <% } else { %>
+      <div class="orders-list">
+        <% orders.forEach(order => { %>
+          <div class="order-card <%= order.status %>">
+            <div class="order-header">
+              <h3>Order #<%= order.id %></h3>
+              <span class="status-badge <%= order.status %>"><%= order.status %></span>
+            </div>
+            <p><strong>Customer:</strong> <%= order.customer_name %></p>
+            <p><strong>Pickup Time:</strong> <%= order.pickup_time %></p>
+            
+            <h4>Items:</h4>
+            <ul class="order-items">
+              <% order.items.forEach(item => { 
+                 const menuItem = menuItemsMap.get(item.id);
+                 const itemTotal = menuItem ? menuItem.price * item.quantity : 0;
+              %>
+                <li>
+                  <%= menuItem ? menuItem.name : 'Unknown' %> × <%= item.quantity %> 
+                  <span class="item-price">$<%= itemTotal.toFixed(2) %></span>
+                </li>
+              <% }); %>
+            </ul>
+            
+            <p class="total-price"><strong>Total:</strong> $<%= order.total_price.toFixed(2) %></p>
+            
+            <% if (order.status === 'pending') { %>
+              <form method="POST" action="/admin/complete/<%= order.id %>" style="display: inline;">
+                <button type="submit" class="btn btn-success">Mark Complete</button>
+              </form>
+            <% } %>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </main>
+</body>
+</html>
