@@ -1,8 +1,46 @@
+# Git
 .git
-.env
-*.pyc
-__pycache__/
-**/__pycache__/
-workspace/
-*.md
 .gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+.env.local
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+tests/
+test_*.py
+*.test.py
+.pytest_cache/
+
+# Dev files
+*.md
+docs/
+.env.example
+README.md
+
+# SQLite dev databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Dependencies
+requirements-dev.txt
