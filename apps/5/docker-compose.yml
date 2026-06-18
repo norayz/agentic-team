@@ -7,20 +7,26 @@ services:
       dockerfile: Dockerfile
     container_name: barista-site
     ports:
-      - "${HOST_PORT:-3000}:3000"
+      - "${PORT:-3000}:3000"
     environment:
+      # Node environment
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3000
-      - DATABASE_PATH=/app/data/barista.db
+      # Database location (mounted volume)
+      - DB_PATH=/app/db/orders.db
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
-      - ./data:/app/data
-      - ./src:/app/src:ro
-      - ./views:/app/views:ro
-      - ./public:/app/public:ro
+      # Persist SQLite database across restarts
+      - ./db:/app/db
+      # Persist logs
+      - ./logs:/app/logs
+      # Optional: hot-reload for development (comment out for production testing)
+      # - .:/app:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
       interval: 30s
-      timeout: 3s
+      timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 10s

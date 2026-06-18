@@ -1,55 +1,50 @@
 # Git
 .git
 .gitignore
-.github
+.gitattributes
 
-# Dependencies
+# Node
 node_modules
-npm-debug.log
-yarn-error.log
-package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 .npm
+.eslintcache
 
-# Testing
-.mocha
-.nyc_output
-coverage
-test
-tests
-*.test.js
-*.spec.js
-
-# IDE
+# IDEs
 .vscode
 .idea
 *.swp
 *.swo
 *~
 .DS_Store
-.editorconfig
 
-# Environment
-.env
+# Testing
+.mocha
+.nyc_output
+coverage
+**/*.test.js
+**/*.spec.js
+
+# Development
 .env.local
 .env.*.local
+.env.development
+.env.test
 
-# Build artifacts
-dist
-build
-.cache
+# Documentation
+README.md
+LICENSE
 
 # CI/CD
 .github
 .gitlab-ci.yml
-.travis.yml
+.circleci
 
-# Documentation
-README.md
-CHANGELOG.md
-
-# Runtime database (keep fresh on each container start)
-data/*.db
-data/*.db-journal
+# Build artifacts
+dist
+build
+*.tsbuildinfo
 
 # OS
 Thumbs.db
