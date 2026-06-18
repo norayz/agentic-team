@@ -1,72 +1,128 @@
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List
+"""API routes for todo operations."""
+
+from fastapi import APIRouter, HTTPException, status
+from src.database import Database
 from src.schemas import TodoCreate, TodoUpdate, TodoResponse
-from src import database
+from typing import Optional
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
+# Global database instance (initialized in main)
+_db: Optional[Database] = None
 
-@router.post("", response_model=TodoResponse, status_code=201)
-async def create_todo(todo: TodoCreate):
-    """Create a new todo"""
+
+def set_database(db: Database) -> None:
+    """Set the database instance for routes."""
+    global _db
+    _db = db
+
+
+def get_db() -> Database:
+    """Get the database instance."""
+    if _db is None:
+        raise RuntimeError("Database not initialized")
+    return _db
+
+
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=TodoResponse)
+def create_todo(todo_create: TodoCreate) -> TodoResponse:
+    """Create a new todo.
+    
+    Returns HTTP 201 with created todo.
+    Returns HTTP 422 if title is invalid.
+    """
     try:
-        result = database.create_todo(todo.title)
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        db = get_db()
+        result = db.create_todo(todo_create.title)
+        return TodoResponse(**result)
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail="Database unavailable. Please retry.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database unavailable: {str(e)}",
+        )
 
 
-@router.get("", response_model=List[TodoResponse])
-async def list_todos():
-    """Get all todos"""
+@router.get("", response_model=list[TodoResponse])
+def list_todos() -> list[TodoResponse]:
+    """Get all todos.
+    
+    Returns HTTP 200 with array of todos.
+    """
     try:
-        todos = database.get_todos()
-        return todos
+        db = get_db()
+        todos = db.get_todos()
+        return [TodoResponse(**todo) for todo in todos]
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail="Database unavailable. Please retry.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database unavailable: {str(e)}",
+        )
 
 
 @router.get("/{todo_id}", response_model=TodoResponse)
-async def get_todo(todo_id: int):
-    """Get a single todo by ID"""
+def get_todo(todo_id: int) -> TodoResponse:
+    """Get a single todo by ID.
+    
+    Returns HTTP 200 if found.
+    Returns HTTP 404 if not found.
+    """
     try:
-        todo = database.get_todo_by_id(todo_id)
+        db = get_db()
+        todo = db.get_todo(todo_id)
         if todo is None:
-            raise HTTPException(status_code=404, detail="Todo not found")
-        return todo
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found"
+            )
+        return TodoResponse(**todo)
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail="Database unavailable. Please retry.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database unavailable: {str(e)}",
+        )
 
 
 @router.put("/{todo_id}", response_model=TodoResponse)
-async def update_todo(todo_id: int, todo_update: TodoUpdate):
-    """Update a todo"""
+def update_todo(todo_id: int, todo_update: TodoUpdate) -> TodoResponse:
+    """Update a todo (partial update).
+    
+    Only provided fields are updated. Unset fields are preserved.
+    
+    Returns HTTP 200 if updated.
+    Returns HTTP 404 if not found.
+    """
     try:
-        # Extract only the fields that were actually provided (exclude_unset)
-        update_data = todo_update.model_dump(exclude_unset=True)
-        
-        result = database.update_todo(
-            todo_id,
-            title=update_data.get('title'),
-            completed=update_data.get('completed')
+        db = get_db()
+        todo = db.update_todo(
+            todo_id, title=todo_update.title, completed=todo_update.completed
         )
-        
-        if result is None:
-            raise HTTPException(status_code=404, detail="Todo not found")
-        return result
+        if todo is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found"
+            )
+        return TodoResponse(**todo)
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail="Database unavailable. Please retry.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database unavailable: {str(e)}",
+        )
 
 
-@router.delete("/{todo_id}", status_code=204)
-async def delete_todo(todo_id: int):
-    """Delete a todo"""
+@router.delete("/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_todo(todo_id: int) -> None:
+    """Delete a todo.
+    
+    Returns HTTP 204 if deleted.
+    Returns HTTP 404 if not found.
+    """
     try:
-        deleted = database.delete_todo(todo_id)
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Todo not found")
-        return None
+        db = get_db()
+        success = db.delete_todo(todo_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found"
+            )
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail="Database unavailable. Please retry.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database unavailable: {str(e)}",
+        )

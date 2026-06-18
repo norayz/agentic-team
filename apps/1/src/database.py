@@ -1,209 +1,222 @@
+"""Database layer with raw SQL queries."""
+
 import sqlite3
 import os
-from contextlib import contextmanager
-from typing import Optional, Dict, Any, List
-
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./todos.db")
-
-# Extract file path from DATABASE_URL (handle both sqlite:/// and file paths)
-if DATABASE_URL.startswith("sqlite:///"):
-    DB_PATH = DATABASE_URL.replace("sqlite:///", "")
-else:
-    DB_PATH = DATABASE_URL
+from datetime import datetime
+from typing import Optional
 
 
-def init_db():
-    """Initialize database schema"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
+class Database:
+    """SQLite database wrapper with parameterized queries."""
+
+    def __init__(self, db_path: Optional[str] = None):
+        """Initialize database connection.
         
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS todos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                completed BOOLEAN DEFAULT 0,
-                created_at TEXT NOT NULL
+        Args:
+            db_path: Path to SQLite database file. Defaults to environment
+                    variable DATABASE_URL or 'todos.db'.
+        """
+        if db_path is None:
+            db_path = os.getenv("DATABASE_URL", "todos.db")
+        self.db_path = db_path
+        self.init_db()
+
+    def init_db(self) -> None:
+        """Initialize database schema."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS todos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    completed BOOLEAN NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL
+                )
+            """
             )
-        ''')
-        
-        conn.commit()
-        conn.close()
-    except sqlite3.Error as e:
-        raise RuntimeError(f"Failed to initialize database at {DB_PATH}: {e}")
-
-
-@contextmanager
-def get_db():
-    """Context manager for database connection"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        yield conn
-    except sqlite3.Error as e:
-        raise RuntimeError(f"Database error: {e}") from e
-    finally:
-        conn.close()
-
-
-def create_todo(title: str, conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
-    """Create a new todo"""
-    from datetime import datetime
-    
-    close_conn = conn is None
-    try:
-        if conn is None:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-        
-        created_at = datetime.utcnow().isoformat()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            'INSERT INTO todos (title, completed, created_at) VALUES (?, ?, ?)',
-            (title, False, created_at)
-        )
-        conn.commit()
-        
-        todo_id = cursor.lastrowid
-        return get_todo_by_id(todo_id, conn)
-    except sqlite3.Error as e:
-        if close_conn:
-            conn.close()
-        raise RuntimeError(f"Database error: {e}") from e
-    finally:
-        if close_conn and conn:
-            conn.close()
-
-
-def get_todos(conn: Optional[sqlite3.Connection] = None) -> List[Dict[str, Any]]:
-    """Get all todos"""
-    close_conn = conn is None
-    try:
-        if conn is None:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-        
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, title, completed, created_at FROM todos ORDER BY id')
-        rows = cursor.fetchall()
-        
-        todos = []
-        for row in rows:
-            todos.append({
-                'id': row['id'],
-                'title': row['title'],
-                'completed': bool(row['completed']),
-                'created_at': row['created_at']
-            })
-        return todos
-    except sqlite3.Error as e:
-        if close_conn:
-            conn.close()
-        raise RuntimeError(f"Database error: {e}") from e
-    finally:
-        if close_conn and conn:
-            conn.close()
-
-
-def get_todo_by_id(todo_id: int, conn: Optional[sqlite3.Connection] = None) -> Optional[Dict[str, Any]]:
-    """Get a todo by ID"""
-    close_conn = conn is None
-    try:
-        if conn is None:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-        
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, title, completed, created_at FROM todos WHERE id = ?', (todo_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            return {
-                'id': row['id'],
-                'title': row['title'],
-                'completed': bool(row['completed']),
-                'created_at': row['created_at']
-            }
-        return None
-    except sqlite3.Error as e:
-        if close_conn:
-            conn.close()
-        raise RuntimeError(f"Database error: {e}") from e
-    finally:
-        if close_conn and conn:
-            conn.close()
-
-
-def update_todo(todo_id: int, title: Optional[str] = None, completed: Optional[bool] = None, conn: Optional[sqlite3.Connection] = None) -> Optional[Dict[str, Any]]:
-    """Update a todo"""
-    close_conn = conn is None
-    try:
-        if conn is None:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-        
-        cursor = conn.cursor()
-        
-        # Check if todo exists
-        cursor.execute('SELECT id FROM todos WHERE id = ?', (todo_id,))
-        if not cursor.fetchone():
-            if close_conn:
-                conn.close()
-            return None
-        
-        # Build update query
-        updates = []
-        params = []
-        
-        if title is not None:
-            updates.append('title = ?')
-            params.append(title)
-        
-        if completed is not None:
-            updates.append('completed = ?')
-            params.append(completed)
-        
-        if updates:
-            params.append(todo_id)
-            query = f"UPDATE todos SET {', '.join(updates)} WHERE id = ?"
-            cursor.execute(query, params)
             conn.commit()
-        
-        return get_todo_by_id(todo_id, conn)
-    except sqlite3.Error as e:
-        if close_conn:
             conn.close()
-        raise RuntimeError(f"Database error: {e}") from e
-    finally:
-        if close_conn and conn:
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to initialize database at {self.db_path}: {e}"
+            )
+
+    def create_todo(self, title: str) -> dict:
+        """Create a new todo.
+        
+        Args:
+            title: Todo title (required, non-empty)
+            
+        Returns:
+            Dictionary with id, title, completed, created_at
+            
+        Raises:
+            RuntimeError: If database operation fails
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            now = datetime.now().isoformat()
+
+            cursor.execute(
+                "INSERT INTO todos (title, completed, created_at) VALUES (?, ?, ?)",
+                (title, False, now),
+            )
+            conn.commit()
+
+            todo_id = cursor.lastrowid
             conn.close()
 
+            return {
+                "id": todo_id,
+                "title": title,
+                "completed": False,
+                "created_at": now,
+            }
+        except sqlite3.Error as e:
+            raise RuntimeError(f"Database error: {e}")
 
-def delete_todo(todo_id: int, conn: Optional[sqlite3.Connection] = None) -> bool:
-    """Delete a todo"""
-    close_conn = conn is None
-    try:
-        if conn is None:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
+    def get_todos(self) -> list:
+        """Get all todos.
         
-        cursor = conn.cursor()
-        
-        # Check if todo exists
-        cursor.execute('SELECT id FROM todos WHERE id = ?', (todo_id,))
-        if not cursor.fetchone():
-            if close_conn:
-                conn.close()
-            return False
-        
-        cursor.execute('DELETE FROM todos WHERE id = ?', (todo_id,))
-        conn.commit()
-        return True
-    except sqlite3.Error as e:
-        if close_conn:
+        Returns:
+            List of todos sorted by id
+            
+        Raises:
+            RuntimeError: If database operation fails
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "SELECT id, title, completed, created_at FROM todos ORDER BY id"
+            )
+            rows = cursor.fetchall()
             conn.close()
-        raise RuntimeError(f"Database error: {e}") from e
-    finally:
-        if close_conn and conn:
+
+            return [
+                {
+                    "id": row[0],
+                    "title": row[1],
+                    "completed": bool(row[2]),
+                    "created_at": row[3],
+                }
+                for row in rows
+            ]
+        except sqlite3.Error as e:
+            raise RuntimeError(f"Database error: {e}")
+
+    def get_todo(self, todo_id: int) -> Optional[dict]:
+        """Get a single todo by ID.
+        
+        Args:
+            todo_id: ID of todo to retrieve
+            
+        Returns:
+            Todo dictionary or None if not found
+            
+        Raises:
+            RuntimeError: If database operation fails
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "SELECT id, title, completed, created_at FROM todos WHERE id = ?",
+                (todo_id,),
+            )
+            row = cursor.fetchone()
             conn.close()
+
+            if row is None:
+                return None
+
+            return {
+                "id": row[0],
+                "title": row[1],
+                "completed": bool(row[2]),
+                "created_at": row[3],
+            }
+        except sqlite3.Error as e:
+            raise RuntimeError(f"Database error: {e}")
+
+    def update_todo(
+        self, todo_id: int, title: Optional[str] = None, completed: Optional[bool] = None
+    ) -> Optional[dict]:
+        """Update a todo (partial update).
+        
+        Only provided fields are updated. Unset fields are preserved.
+        
+        Args:
+            todo_id: ID of todo to update
+            title: New title (optional)
+            completed: New completed status (optional)
+            
+        Returns:
+            Updated todo dictionary or None if not found
+            
+        Raises:
+            RuntimeError: If database operation fails
+        """
+        try:
+            # Fetch current todo
+            todo = self.get_todo(todo_id)
+            if todo is None:
+                return None
+
+            # Only update fields that were provided
+            new_title = title if title is not None else todo["title"]
+            new_completed = (
+                completed if completed is not None else todo["completed"]
+            )
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "UPDATE todos SET title = ?, completed = ? WHERE id = ?",
+                (new_title, new_completed, todo_id),
+            )
+            conn.commit()
+            conn.close()
+
+            return {
+                "id": todo_id,
+                "title": new_title,
+                "completed": new_completed,
+                "created_at": todo["created_at"],
+            }
+        except sqlite3.Error as e:
+            raise RuntimeError(f"Database error: {e}")
+
+    def delete_todo(self, todo_id: int) -> bool:
+        """Delete a todo.
+        
+        Args:
+            todo_id: ID of todo to delete
+            
+        Returns:
+            True if todo was deleted, False if not found
+            
+        Raises:
+            RuntimeError: If database operation fails
+        """
+        try:
+            todo = self.get_todo(todo_id)
+            if todo is None:
+                return False
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
+            conn.commit()
+            conn.close()
+
+            return True
+        except sqlite3.Error as e:
+            raise RuntimeError(f"Database error: {e}")
