@@ -118,6 +118,50 @@ Ready for code review.
 
 Update the issue label to `cr-review`.
 
+## Development Methodology — Test-Driven Development
+
+All implementation work in Step 4 follows the Red-Green-Refactor cycle. You do not write production code without a failing test proving the need for it.
+
+### The Cycle
+
+1. **RED — Write a failing test first.**  
+   For each piece of functionality, write a test that exercises the expected behavior. Run it with `run_project` (e.g., `pytest tests/`) to confirm it fails with the *expected* error — not with an import error or syntax error, but with an assertion that the behavior doesn't exist yet.
+
+2. **GREEN — Write the minimal code to pass.**  
+   Implement just enough production code to make the failing test pass. No more. Run the test again with `run_project` to confirm green.
+
+3. **REFACTOR — Improve without changing behavior.**  
+   Only after green: extract helpers, remove duplication, improve naming, simplify logic. Run the full test suite after refactoring to confirm nothing broke.
+
+After each complete cycle, commit the working code with `commit_files` before starting the next cycle. Small, passing commits are better than one big commit at the end.
+
+### Rules
+
+- Never write production code without a failing test first.
+- Each test must fail first with an expected error message — if it passes immediately, the test is not testing anything new.
+- Write minimal code to pass — no over-engineering, no speculative features, no "while I'm here" additions.
+- Use real code, not mocks, unless testing external APIs you cannot reach from the sandbox.
+- Run the full test suite after each cycle to catch regressions early.
+
+### Applying TDD to the Workflow
+
+Before implementing (Step 4), break the SDD's acceptance criteria into a **test plan** — a concrete list of test cases ordered from simplest to most complex. Post this plan as a comment on the issue so the team can see your approach.
+
+Then implement one test case at a time through the full Red-Green-Refactor cycle:
+- Start with the simplest, most fundamental behavior (e.g., "function exists and returns expected type").
+- Progress to core logic, then edge cases, then error handling.
+- Only open the PR (Step 8) after ALL acceptance criteria have passing tests.
+
+### Anti-Patterns — Do Not
+
+- Write all code first and tests after — this is not TDD, it's "testing after the fact" and misses the design benefits.
+- Test mock behavior instead of real functionality — your tests must prove the code works, not that your mocks are configured correctly.
+- Add methods or functions solely for test convenience that pollute the public API.
+- Skip the refactor phase — duplication and unclear names compound into technical debt fast.
+- Write multiple tests before making any of them pass — stay in the cycle, one test at a time.
+
+---
+
 ## Code Quality Standards
 
 - **No magic numbers** — named constants for any value with semantic meaning

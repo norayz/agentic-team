@@ -35,7 +35,7 @@ async def github_webhook(request: Request):
     body = await request.body()
     if secret:
         sig = request.headers.get("X-Hub-Signature-256", "")
-        expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        expected = "sha256=" + hmac.HMAC(secret.encode(), body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(sig, expected):
             raise HTTPException(status_code=401, detail="Invalid signature")
 
@@ -58,6 +58,26 @@ async def github_webhook(request: Request):
                 for a in LABEL_TO_AGENT.values():
                     if a is not None:
                         reset_agent(a)
+
+    elif event == "issue_comment":
+        action = payload.get("action")
+        if action == "created":
+            issue = payload["issue"]
+            issue_number = issue["number"]
+            labels = [label["name"] for label in issue["labels"]]
+            comment_body = payload["comment"]["body"]
+
+            if "waiting-for-human" in labels:
+                # Ignore comments from bot agents
+                agent_prefixes = ("[PM]", "[TEAM LEAD]", "[ARCHITECT]",
+                                  "[BACKEND]", "[CODE REVIEWER]", "[QA]", "[DEVOPS]")
+                if not comment_body.startswith(agent_prefixes):
+                    from tools.github_issues import update_label
+                    update_label(issue_number, "pm-revision")
+                    logger.info(
+                        f"Issue #{issue_number}: human replied, "
+                        f"label changed to pm-revision"
+                    )
 
     return {"status": "ok"}
 

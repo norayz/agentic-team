@@ -211,19 +211,6 @@ TOOL_RUN_PROJECT: dict = {
     },
 }
 
-TOOL_RUN_COMMAND: dict = {
-    "name": "run_command",
-    "description": "Run a shell command in the E2B sandbox (use to verify docker builds or infra scripts)",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "command": {"type": "string"},
-            "timeout": {"type": "integer", "description": "Seconds, default 120"},
-        },
-        "required": ["command"],
-    },
-}
-
 # ── Composed tool sets ─────────────────────────────────────────────────────────
 
 TOOLS_ISSUE: list[dict] = [
@@ -330,7 +317,7 @@ def run_agent_service(
     Model is read from {AGENT_NAME_UPPER}_MODEL env var, falling back to AGENT_DEFAULTS.
     """
     from agents.base import run_agent
-    from tools.models import AGENT_DEFAULTS
+    from tools.models import AGENT_DEFAULTS, get_tl_model_assignment
 
     model = os.environ.get(
         f"{agent_name.upper()}_MODEL",
@@ -341,6 +328,9 @@ def run_agent_service(
     def handle(issue: dict) -> None:
         if on_pickup is not None and on_pickup(issue) is False:
             return
-        run_agent(issue["number"], agent_name, model, tools, system_prompt, tool_executor)
+        effective_model = get_tl_model_assignment(issue["number"], agent_name) or model
+        if effective_model != model:
+            logger.info(f"[{agent_name}] using TL-assigned model: {effective_model}")
+        run_agent(issue["number"], agent_name, effective_model, tools, system_prompt, tool_executor)
 
     poll(agent_name, poll_labels, handle)

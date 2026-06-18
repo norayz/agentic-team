@@ -5,6 +5,7 @@ No framework. Direct Anthropic SDK.
 import os
 import json
 import logging
+import time
 from typing import Any
 import anthropic
 
@@ -48,13 +49,29 @@ def run_agent(
     logger.info(f"[{agent_name}] Starting on issue #{issue_number} with model {model}")
 
     for iteration in range(max_iterations):
-        response = client.messages.create(
-            model=model,
-            max_tokens=8192,
-            system=system_prompt,
-            tools=tools,
-            messages=history,
-        )
+        # Trim context window: keep first message + last 16 if history too long
+        if len(history) > 20:
+            history = [history[0]] + history[-16:]
+
+        # Retry with exponential backoff on transient API errors
+        for attempt in range(3):
+            try:
+                response = client.messages.create(
+                    model=model,
+                    max_tokens=8192,
+                    system=system_prompt,
+                    tools=tools,
+                    messages=history,
+                )
+                break
+            except (anthropic.RateLimitError, anthropic.InternalServerError) as e:
+                if attempt < 2:
+                    delay = 2 ** (attempt + 1)  # 2, 4 seconds
+                    logger.warning(f"[{agent_name}] API error (attempt {attempt + 1}/3), retrying in {delay}s: {e}")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"[{agent_name}] API error after 3 attempts, giving up: {e}")
+                    raise
 
         # Append assistant response
         history.append({"role": "assistant", "content": response.content})

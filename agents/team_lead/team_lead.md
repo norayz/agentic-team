@@ -50,7 +50,7 @@ Read the full issue body. Evaluate it against these criteria:
   
   Please address these and resubmit.
   ```
-- Update label to `pm-drafting`
+- Update label to `pm-revision`
 
 **If the spec is approvable:**
 - Decide model assignments for each downstream agent based on the complexity of what that agent will need to do for THIS specific task:
