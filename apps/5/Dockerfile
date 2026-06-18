@@ -1,52 +1,55 @@
+# Multi-stage Dockerfile for Barista Site (Node.js + Express + SQLite + EJS)
 # Stage 1: Builder
-# Install build dependencies and prepare the application
-FROM node:20-alpine3.20 AS builder
+FROM node:20-bullseye AS builder
 
-# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including devDependencies for testing)
-RUN npm ci --only=production
+# Install dependencies (including dev dependencies for build tooling if needed)
+RUN npm ci --prefer-offline --no-audit
 
 # Copy source code
 COPY . .
 
+# Verify structure (optional but good for debugging)
+RUN ls -la
+
 # Stage 2: Runtime
-# Use minimal base image with only production dependencies
-FROM node:20-alpine3.20
-
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init=1.2.5-r2
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+FROM node:20-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy node modules and source from builder
-COPY --from=builder --chown=nodejs:nodejs /app /app
+# Create non-root user for security
+RUN useradd -r -s /bin/false appuser
 
-# Create directories for persistent data (db and logs)
-RUN mkdir -p /app/db /app/logs && \
-    chown -R nodejs:nodejs /app/db /app/logs
+# Copy only runtime dependencies and built artifacts from builder
+COPY --from=builder --chown=appuser:appuser /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appuser /app/package*.json ./
+COPY --from=builder --chown=appuser:appuser /app/src ./src
+COPY --from=builder --chown=appuser:appuser /app/public ./public
+COPY --from=builder --chown=appuser:appuser /app/views ./views
+COPY --from=builder --chown=appuser:appuser /app/data ./data
+
+# Create directory for SQLite database with proper permissions
+RUN mkdir -p /app/db && chown appuser:appuser /app/db
 
 # Switch to non-root user
-USER nodejs
+USER appuser
 
-# Expose port
+# Expose port (Express default)
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
+# Set environment variables
+ENV NODE_ENV=production \
+    PORT=3000 \
+    DATABASE_PATH=/app/db/orders.db
+
+# Health check: verify the app is responding on port 3000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 1
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
-
 # Start the application
-CMD ["node", "src/index.js"]
+CMD ["npm", "start"]

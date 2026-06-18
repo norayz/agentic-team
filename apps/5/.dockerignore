@@ -1,44 +1,69 @@
-# Development files
-node_modules/
-npm-debug.log*
-yarn-error.log*
-.npm
-.eslintcache
-
-# Testing
-.mocha
-.nyc_output/
-coverage/
-*.test.js
-*.spec.js
-
 # Version control
 .git
 .gitignore
-.github
+.gitattributes
 
-# IDE
-.vscode/
-.idea/
+# Node dependencies (will be installed fresh in container)
+node_modules
+npm-debug.log
+yarn-error.log
+.npm
+.yarn
+
+# Test files and coverage
+__tests__
+__test__
+test
+tests
+*.test.js
+*.spec.js
+coverage
+.nyc_output
+
+# Development files
+.env.local
+.env.development
+.env.*.local
+.vscode
+.idea
 *.swp
 *.swo
 *~
 .DS_Store
+Thumbs.db
 
-# Environment
-.env
-.env.local
-.env.*.local
+# Build artifacts
+dist
+build
+.eslintcache
+.turbo
 
-# Documentation
+# Database files (don't include dev database in image)
+db/*.db
+*.sqlite
+*.sqlite3
+
+# Documentation and config files that shouldn't be in image
 README.md
-CHANGELOG.md
+LICENSE
+*.md
+Dockerfile
+docker-compose.yml
+.github
+.editorconfig
+.prettierignore
+.eslintignore
+tsconfig.json
+.babelrc
 
 # CI/CD
+.github
 .gitlab-ci.yml
-.travis.yml
-Jenkinsfile
+.circleci
 
-# Build artifacts (if any)
-dist/
-build/
+# Security and secrets
+.env
+.env.example
+secrets/
+*.pem
+*.key

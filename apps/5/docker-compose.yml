@@ -5,23 +5,30 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: barista-site
+    container_name: barista-app
     ports:
-      - "${PORT:-3000}:3000"
+      - "${HOST_PORT:-3000}:3000"
     environment:
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=development
       - PORT=3000
-      - DB_PATH=/app/db/orders.db
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DATABASE_PATH=/app/db/orders.db
     volumes:
-      # Persist SQLite database across restarts
-      - ./db:/app/db
-      # Persist application logs
-      - ./logs:/app/logs
+      # Mount source code for hot-reload during development (read-only recommended)
+      - .:/app:ro
+      # Preserve node_modules inside container to avoid host/container conflicts
+      - /app/node_modules
+      # Persist database across container restarts
+      - barista_db:/app/db
     restart: unless-stopped
+    # Override CMD for development (optional, comment out to use Dockerfile CMD)
+    # command: npm run dev
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
       interval: 30s
-      timeout: 5s
+      timeout: 3s
       retries: 3
       start_period: 10s
+
+volumes:
+  barista_db:
+    driver: local
