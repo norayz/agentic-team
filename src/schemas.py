@@ -1,46 +1,40 @@
-"""Pydantic schemas for request/response validation."""
-from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Optional
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 
 
 class TodoCreate(BaseModel):
     """Schema for creating a new todo."""
-
-    title: str = Field(..., min_length=1)
+    title: str
 
     @field_validator("title")
     @classmethod
     def title_not_empty(cls, v: str) -> str:
-        """Ensure title is not empty or whitespace-only."""
-        if not v or not v.strip():
-            raise ValueError("Title cannot be empty or whitespace")
-        return v
+        """Validate that title is not empty or just whitespace."""
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("Title cannot be empty or whitespace only")
+        return v.strip()
 
 
 class TodoUpdate(BaseModel):
-    """Schema for updating a todo (partial update)."""
-
-    title: Optional[str] = Field(None, min_length=1)
-    completed: Optional[bool] = None
+    """Schema for updating a todo. Both fields are optional."""
+    title: str | None = None
+    completed: bool | None = None
 
     @field_validator("title")
     @classmethod
-    def title_not_empty(cls, v: Optional[str]) -> Optional[str]:
-        """Ensure title is not empty or whitespace-only if provided."""
-        if v is not None and (not v or not v.strip()):
-            raise ValueError("Title cannot be empty or whitespace")
-        return v
-
-    model_config = ConfigDict(from_attributes=True)
+    def title_not_empty_if_provided(cls, v: str | None) -> str | None:
+        """Validate that title is not empty or just whitespace if provided."""
+        if v is not None and (not isinstance(v, str) or not v.strip()):
+            raise ValueError("Title cannot be empty or whitespace only")
+        return v.strip() if v else None
 
 
 class TodoResponse(BaseModel):
-    """Schema for todo response."""
-
+    """Schema for todo responses. Matches database model."""
     id: int
     title: str
     completed: bool
     created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True

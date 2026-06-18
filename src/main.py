@@ -1,22 +1,18 @@
-"""FastAPI application entry point."""
 from fastapi import FastAPI
+from src.database import init_db
 from src.routes import router
 
 app = FastAPI(
     title="Todo API",
-    description="A simple REST API for managing todo items",
+    description="A simple personal todo REST API",
     version="1.0.0",
 )
 
-# Include routes
+
+@app.on_event("startup")
+def startup_event():
+    """Initialize database on app startup."""
+    init_db()
+
+
 app.include_router(router)
-
-
-@app.get("/")
-def read_root():
-    """Root endpoint with API information."""
-    return {
-        "message": "Todo API",
-        "docs": "/docs",
-        "openapi": "/openapi.json",
-    }
