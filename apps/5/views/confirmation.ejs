@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmation</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header>
+    <h1>☕ Coffee House</h1>
+  </header>
+
+  <main class="container">
+    <div class="confirmation-box">
+      <h2>✅ Order Confirmed!</h2>
+      <p><strong>Order #<%= order.id %></strong></p>
+      <p><strong>Name:</strong> <%= order.customer_name %></p>
+      <p><strong>Pickup Time:</strong> <%= order.pickup_time %></p>
+
+      <h3>Your Items:</h3>
+      <ul class="order-items">
+        <% order.items.forEach(item => { 
+           const menuItem = menuItemsMap.get(item.id);
+           const itemTotal = menuItem.price * item.quantity;
+        %>
+          <li>
+            <%= menuItem.name %> × <%= item.quantity %> 
+            <span class="item-price">$<%= itemTotal.toFixed(2) %></span>
+          </li>
+        <% }); %>
+      </ul>
+
+      <p class="total-price"><strong>Total:</strong> $<%= order.total_price.toFixed(2) %></p>
+
+      <div class="actions">
+        <a href="/" class="btn btn-primary">Back to Menu</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    localStorage.removeItem('cart');
+  </script>
+</body>
+</html>

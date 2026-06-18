@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cart - Barista Site</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1><a href="/">☕ Barista Site</a></h1>
+      <nav>
+        <a href="/">Menu</a>
+        <a href="/cart" id="cart-link">Cart (<span id="cart-count">0</span>)</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2>Your Cart</h2>
+
+    <div id="empty-cart" style="display: none;">
+      <p>Your cart is empty.</p>
+      <a href="/" class="btn">Browse Menu</a>
+    </div>
+
+    <div id="cart-items"></div>
+    <div id="cart-total"></div>
+
+    <form id="order-form" style="display: none;">
+      <h3>Order Details</h3>
+
+      <div class="form-group">
+        <label for="customer_name">Your Name:</label>
+        <input type="text" id="customer_name" name="customer_name" required>
+      </div>
+
+      <div class="form-group">
+        <label for="pickup_time">Pickup Time:</label>
+        <input type="datetime-local" id="pickup_time" name="pickup_time" required>
+      </div>
+
+      <div id="error-message" style="color: red; margin-bottom: 1rem; display: none;"></div>
+
+      <button type="submit" class="btn btn-primary">Place Order</button>
+    </form>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2024 Barista Site. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="/js/cart.js"></script>
+</body>
+</html>

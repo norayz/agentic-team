@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Barista Site</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1><a href="/">☕ Barista Site - Admin</a></h1>
+      <nav>
+        <a href="/">Menu</a>
+        <a href="/admin">Admin Panel</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2>Pending Orders (<%= orders.length %>)</h2>
+
+    <% if (orders.length === 0) { %>
+      <p>No pending orders at the moment.</p>
+    <% } else { %>
+      <div class="orders-list">
+        <% orders.forEach(order => { %>
+          <div class="order-card">
+            <div class="order-header">
+              <h3>Order #<%= order.id %> - <%= order.customer_name %></h3>
+              <div class="pickup-time">
+                <strong>Pickup:</strong> <%= new Date(order.pickup_time).toLocaleString() %>
+              </div>
+            </div>
+
+            <ul class="order-items">
+              <% order.items.forEach(item => { %>
+                <li>
+                  <%= item.name %> (x<%= item.quantity %>) - $<%= (item.price * item.quantity).toFixed(2) %>
+                </li>
+              <% }); %>
+            </ul>
+
+            <p class="order-total"><strong>Total: $<%= order.total_price.toFixed(2) %></strong></p>
+
+            <form method="POST" action="/admin/complete/<%= order.id %>" style="display: inline;">
+              <button type="submit" class="btn">Mark Complete</button>
+            </form>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2024 Barista Site. All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+</html>

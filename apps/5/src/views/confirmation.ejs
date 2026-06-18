@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmation - Barista Site</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1><a href="/">☕ Barista Site</a></h1>
+      <nav>
+        <a href="/">Menu</a>
+        <a href="/cart" id="cart-link">Cart (<span id="cart-count">0</span>)</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="confirmation">
+      <h2>✅ Order Confirmed!</h2>
+      <p>Thank you, <strong><%= order.customer_name %></strong>! Your order has been placed.</p>
+      
+      <p><strong>Order #<%= order.id %></strong></p>
+      <p><strong>Pickup Time:</strong> <%= new Date(order.pickup_time).toLocaleString() %></p>
+
+      <h3>Your Items:</h3>
+      <ul>
+        <% order.items.forEach(item => { %>
+          <li>
+            <%= item.name %> (x<%= item.quantity %>) - $<%= (item.price * item.quantity).toFixed(2) %>
+          </li>
+        <% }); %>
+      </ul>
+
+      <p class="total"><strong>Total: $<%= order.total_price.toFixed(2) %></strong></p>
+
+      <p>We'll have your order ready at the requested pickup time. See you soon!</p>
+
+      <a href="/" class="btn">Return to Menu</a>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2024 Barista Site. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Clear cart after order confirmation
+    localStorage.removeItem('cart');
+  </script>
+</body>
+</html>
