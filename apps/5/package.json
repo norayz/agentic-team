@@ -1,0 +1,17 @@
+{
+  "name": "barista-site",
+  "version": "1.0.0",
+  "description": "Coffee house online ordering system",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "keywords": ["coffee", "ordering", "express"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ejs": "^3.1.9",
+    "sqlite3": "^5.1.6"
+  }
+}
