@@ -1,7 +1,7 @@
-"""FastAPI application factory and configuration."""
+"""FastAPI application factory."""
 from fastapi import FastAPI
-from src.database import init_db
-from src.routes import router
+from src import database
+from src import routes
 
 app = FastAPI(
     title="Todo API",
@@ -9,11 +9,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-
+# Initialize database on startup
 @app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup."""
-    init_db()
+def startup_event():
+    try:
+        database.init_db()
+    except RuntimeError as e:
+        raise RuntimeError(f"Failed to initialize database on startup: {e}")
+
+# Include routes
+app.include_router(routes.router)
 
 
-app.include_router(router)
+@app.get("/")
+def root():
+    """Root endpoint."""
+    return {"message": "Todo API is running. Visit /docs for API documentation."}
