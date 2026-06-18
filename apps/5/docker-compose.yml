@@ -9,16 +9,22 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - PORT=${PORT:-3000}
       - DATABASE_PATH=/app/data/barista.db
-      - PORT=3000
     volumes:
-      # Persist database across restarts
+      # Persist SQLite database across container restarts
       - ./data:/app/data
+      # Hot-reload for development (optional, comment out for production-like testing)
+      - ./src:/app/src:ro
     restart: unless-stopped
-    networks:
-      - barista-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
 
-networks:
-  barista-network:
-    driver: bridge
+volumes:
+  data:
+    driver: local

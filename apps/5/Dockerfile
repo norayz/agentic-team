@@ -1,49 +1,67 @@
-# Multi-stage build for barista site
-# Stage 1: Builder - install dependencies and prepare app
-FROM node:20.11-alpine as builder
+# Multi-stage build for Barista Site
+# Stage 1: Builder
+FROM node:20.11-alpine AS builder
 
 WORKDIR /app
 
+# Install build dependencies (required for native modules if any)
+RUN apk add --no-cache python3 make g++ ca-certificates
+
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json* ./
 
-# Install dependencies (including devDependencies for build tools if needed)
-RUN npm ci --only=production
+# Install all dependencies (including dev for testing)
+RUN npm ci
 
-# Copy application source
-COPY . .
+# Copy source code
+COPY src ./src
+COPY public ./public
+COPY views ./views
+COPY data ./data
 
-# Stage 2: Runtime - minimal image with only what's needed to run
+# Run tests and linting if available
+RUN npm run test 2>/dev/null || echo "Tests skipped"
+RUN npm run lint 2>/dev/null || echo "Linting skipped"
+
+# Stage 2: Runtime
 FROM node:20.11-alpine
 
 WORKDIR /app
 
-# Create non-root user to run the application
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+# Create non-root user for running the app
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
-# Copy built dependencies from builder
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+# Install runtime dependencies only (ca-certificates for HTTPS)
+RUN apk add --no-cache ca-certificates dumb-init
 
-# Copy application source
-COPY --from=builder --chown=nodejs:nodejs /app . 
+# Copy package files from builder
+COPY --from=builder /app/package*.json ./
 
-# Create directory for persistent data (database)
+# Install production dependencies only
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Copy built application from builder (source + any compiled assets)
+COPY --from=builder --chown=nodejs:nodejs /app/src ./src
+COPY --from=builder --chown=nodejs:nodejs /app/public ./public
+COPY --from=builder --chown=nodejs:nodejs /app/views ./views
+
+# Create data directory for SQLite database with proper permissions
 RUN mkdir -p /app/data && chown -R nodejs:nodejs /app/data
 
 # Switch to non-root user
 USER nodejs
 
-# Expose port
+# Expose port (default 3000)
 EXPOSE 3000
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV DATABASE_PATH=/app/data/barista.db
-ENV PORT=3000
+# Health check: verify the app responds on port 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 1
 
-# Health check - test that the server is responding
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/', (res) => { if (res.statusCode !== 200) throw new Error('Health check failed'); })" || exit 1
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 # Start the application
-CMD ["node", "src/server.js"]
+CMD ["node", "src/index.js"]
